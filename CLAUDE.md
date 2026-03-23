@@ -21,7 +21,7 @@ docker compose up -d
 ### Backend
 ```bash
 cd backend
-cp .env.example .env   # edit SECRET_KEY at minimum
+cp .env.example .env   # required keys: SECRET_KEY, DATABASE_URL, DATABASE_URL_SYNC
 pip install -r requirements.txt
 alembic upgrade head   # run DB migrations
 uvicorn app.main:app --reload --port 8000
@@ -50,7 +50,7 @@ alembic revision --autogenerate -m "description"  # create new migration
 alembic downgrade -1              # rollback one step
 ```
 
-Alembic reads `DATABASE_URL` from `settings` (not `alembic.ini`). Both async and sync URLs are required in `.env`.
+Alembic reads `DATABASE_URL` from `settings` (not `alembic.ini`). Both async (`DATABASE_URL`) and sync (`DATABASE_URL_SYNC`) URLs are required in `.env`.
 
 ## Testing
 ```bash
@@ -76,11 +76,13 @@ services/         — business logic (AuthService, ESOZConnector)
 api/v1/           — FastAPI routers; each router instantiates a Service class
 ```
 
+Currently only the `auth` router is registered in `main.py`. Other routers (`patients`, `encounters`, `prescriptions`, `appointments`, `analytics`) are planned TODOs.
+
 ### Data Model Relationships
 
 - `User` → optional `Patient` (1:1) or `Doctor` (1:1)
-- `Patient` → `MedicalCard` (1:1), `Allergy[]`, `ChronicDisease[]`, `PatientDocument[]`
-- `Doctor` → `Encounter[]` (doctor visits)
+- `Patient` → `MedicalCard` (1:1), `Allergy[]`, `ChronicDisease[]`, `PatientDocument[]`, `Appointment[]`
+- `Doctor` → `Encounter[]`, `Schedule[]` (weekly recurring templates), `Appointment[]`
 - `Encounter` → `Diagnosis[]`, `Prescription[]` (e-prescriptions), `Referral[]` (e-referrals)
 - `Prescription` / `Referral` → have `esoz_*` fields populated after syncing to Mock ЕСОЗ
 - Reference tables: `ICD10Code`, `Drug`, `Specialization`
@@ -103,7 +105,7 @@ The backend connects to it via `ESOZConnector` (`services/esoz_connector.py`) us
 ### Infrastructure (docker-compose.yml)
 
 - **PostgreSQL 16** — main database (`medlink:medlink_secret@localhost:5432/medlink`)
-- **Redis 7** — OTP storage, login lockout, Celery broker/backend
+- **Redis 7** — OTP storage, login lockout, Celery broker/backend (databases 0/1/2)
 - **MinIO** — file storage for patient documents and avatars (two buckets: `medlink-docs`, `medlink-avatars`)
 
 ## Key Conventions

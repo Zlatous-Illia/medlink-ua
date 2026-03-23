@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import String, Boolean, DateTime, Enum as SAEnum, Integer, ForeignKey, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 
@@ -83,7 +83,7 @@ class AuditLog(Base):
     resource: Mapped[str | None] = mapped_column(String(100))
     resource_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     ip_address: Mapped[str | None] = mapped_column(String(45))
-    details: Mapped[dict | None] = mapped_column(nullable=True)
+    details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     user: Mapped["User | None"] = relationship(back_populates="audit_logs")
