@@ -86,3 +86,27 @@ async def logout(
 async def get_me(current_user: Annotated[User, Depends(get_current_user)]):
     """Get current user profile."""
     return current_user
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    data: ForgotPasswordRequest,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    redis: Annotated[aioredis.Redis, Depends(get_redis)],
+):
+    """Request a password reset link (token sent to console in dev mode)."""
+    svc = AuthService(db, redis)
+    return await svc.forgot_password(data, ip=_ip(request))
+
+
+@router.post("/reset-password")
+async def reset_password(
+    data: ResetPasswordRequest,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    redis: Annotated[aioredis.Redis, Depends(get_redis)],
+):
+    """Reset password using a valid reset token."""
+    svc = AuthService(db, redis)
+    return await svc.reset_password(data, ip=_ip(request))

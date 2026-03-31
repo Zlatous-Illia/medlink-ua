@@ -4,7 +4,9 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api.v1 import auth
+from app.api.v1 import auth, patients, encounters, prescriptions
+from app.api.v1 import appointments as appt_module
+from app.api.v1 import patient_cabinet, admin, analytics
 
 # Import all models so SQLAlchemy knows about them
 import app.models  # noqa: F401
@@ -13,11 +15,11 @@ import app.models  # noqa: F401
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    print(f"🏥 {settings.APP_NAME} v{settings.APP_VERSION} starting...")
+    print(f"MedLink UA {settings.APP_NAME} v{settings.APP_VERSION} starting...")
     yield
     # Shutdown
     await engine.dispose()
-    print("👋 Shutting down...")
+    print("Shutting down...")
 
 
 app = FastAPI(
@@ -40,13 +42,15 @@ app.add_middleware(
 
 # ─── Routers ─────────────────────────────────────────────────────────────────
 app.include_router(auth.router, prefix="/api/v1")
-
-# TODO Week 2+: add more routers as modules are built
-# app.include_router(patients.router, prefix="/api/v1")
-# app.include_router(encounters.router, prefix="/api/v1")
-# app.include_router(prescriptions.router, prefix="/api/v1")
-# app.include_router(appointments.router, prefix="/api/v1")
-# app.include_router(analytics.router, prefix="/api/v1")
+app.include_router(patients.router, prefix="/api/v1")
+app.include_router(encounters.router, prefix="/api/v1")
+app.include_router(encounters.icd10_router, prefix="/api/v1")
+app.include_router(prescriptions.router, prefix="/api/v1")
+app.include_router(appt_module.router, prefix="/api/v1")
+app.include_router(appt_module.doctors_router, prefix="/api/v1")
+app.include_router(patient_cabinet.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1")
+app.include_router(analytics.router, prefix="/api/v1")
 
 
 @app.get("/", tags=["Health"])

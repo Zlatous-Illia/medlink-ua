@@ -1,10 +1,11 @@
 import hashlib
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
 import redis.asyncio as aioredis
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -17,6 +18,7 @@ from app.models.user import User, UserRole, RefreshToken, AuditLog
 from app.schemas.auth import (
     UserRegisterRequest, UserLoginRequest, OTPVerifyRequest,
     TokenResponse, LoginStep1Response, UserResponse,
+    ForgotPasswordRequest, ResetPasswordRequest,
 )
 
 
@@ -185,6 +187,58 @@ class AuthService:
             refresh_token=refresh_token,
             expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         )
+
+    # ─── Forgot Password ─────────────────────────────────────────────────────
+
+    async def forgot_password(self, data: ForgotPasswordRequest, ip: str = None) -> dict:
+        result = await self.db.execute(
+            select(User).where(User.email == data.email, User.is_active == True)
+        )
+        user = result.scalar_one_or_none()
+        if not user:
+            return {"message": "If the email exists, a reset link has been sent"}
+
+        token = secrets.token_urlsafe(32)
+        await self.redis.setex(f"pwd_reset:{token}", 3600, str(user.id))
+
+        if settings.DEBUG:
+            print(f"[DEV] Password reset token for {user.email}: {token}")
+
+        self.db.add(AuditLog(
+            user_id=user.id, action="PASSWORD_RESET_REQUEST",
+            resource="users", resource_id=user.id, ip_address=ip,
+        ))
+        await self.db.commit()
+        return {"message": "If the email exists, a reset link has been sent"}
+
+    # ─── Reset Password ───────────────────────────────────────────────────────
+
+    async def reset_password(self, data: ResetPasswordRequest, ip: str = None) -> dict:
+        user_id_str = await self.redis.get(f"pwd_reset:{data.token}")
+        if not user_id_str:
+            raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+        user = await self.db.get(User, uuid.UUID(user_id_str))
+        if not user:
+            raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+        user.password_hash = hash_password(data.new_password)
+        await self.redis.delete(f"pwd_reset:{data.token}")
+
+        await self.db.execute(
+            update(RefreshToken)
+            .where(RefreshToken.user_id == user.id)
+            .values(is_revoked=True)
+        )
+
+        self.db.add(AuditLog(
+            user_id=user.id, action="PASSWORD_RESET_COMPLETE",
+            resource="users", resource_id=user.id, ip_address=ip,
+        ))
+        await self.db.commit()
+        return {"message": "Password has been reset successfully"}
+
+    # ─── Helpers ─────────────────────────────────────────────────────────────
 
     async def _increment_failed_attempts(self, user: User):
         key = failed_attempts_key(str(user.id))

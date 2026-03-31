@@ -1,0 +1,185 @@
+from __future__ import annotations
+
+import uuid
+from datetime import datetime, timezone, timedelta
+from typing import Optional
+
+import redis.asyncio as aioredis
+from fastapi import HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.models.clinical import Prescription, PrescriptionStatus, Encounter
+from app.models.doctor import Doctor
+from app.models.patient import Patient
+from app.models.reference import Drug
+from app.models.user import AuditLog, User, UserRole
+from app.schemas.prescriptions import (
+    PrescriptionCreate, PrescriptionResponse, PrescriptionCancelRequest, DrugResponse,
+)
+from app.services.esoz_connector import esoz
+
+
+class PrescriptionService:
+
+    def __init__(self, db: AsyncSession, redis: aioredis.Redis):
+        self.db = db
+        self.redis = redis
+
+    async def _get_doctor_record(self, user: User) -> Doctor:
+        result = await self.db.execute(
+            select(Doctor).where(Doctor.user_id == user.id)
+        )
+        doctor = result.scalar_one_or_none()
+        if not doctor:
+            raise HTTPException(status_code=404, detail="Doctor profile not found")
+        return doctor
+
+    async def create_prescription(self, data: PrescriptionCreate, doctor_user: User) -> PrescriptionResponse:
+        doctor = await self._get_doctor_record(doctor_user)
+
+        enc_result = await self.db.execute(
+            select(Encounter).where(Encounter.id == data.encounter_id)
+        )
+        encounter = enc_result.scalar_one_or_none()
+        if not encounter:
+            raise HTTPException(status_code=404, detail="Encounter not found")
+        if encounter.doctor_id != doctor.id:
+            raise HTTPException(status_code=403, detail="Encounter does not belong to this doctor")
+
+        drug_result = await self.db.execute(
+            select(Drug).where(Drug.id == data.drug_id)
+        )
+        drug = drug_result.scalar_one_or_none()
+        if not drug:
+            raise HTTPException(status_code=404, detail="Drug not found")
+
+        prescription = Prescription(
+            encounter_id=data.encounter_id,
+            patient_id=encounter.patient_id,
+            doctor_id=doctor.id,
+            drug_id=data.drug_id,
+            dosage=data.dosage,
+            frequency=data.frequency,
+            duration_days=data.duration_days,
+            quantity=data.quantity,
+            instructions=data.instructions,
+            status=PrescriptionStatus.ACTIVE,
+            expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+        )
+        self.db.add(prescription)
+        await self.db.flush()
+
+        try:
+            payload = {
+                "patient_id": str(prescription.patient_id),
+                "doctor_id": str(doctor.id),
+                "drug_inn": drug.inn,
+                "atc_code": drug.atc_code,
+                "dosage": data.dosage,
+                "quantity": data.quantity,
+                "created_at": prescription.created_at.isoformat(),
+            }
+            esoz_data = await esoz.create_prescription(payload)
+            prescription.esoz_request_id = uuid.UUID(esoz_data["id"])
+            prescription.esoz_request_number = esoz_data.get("request_number")
+        except Exception:
+            pass  # Continue even if ESOZ sync fails
+
+        self.db.add(AuditLog(
+            user_id=doctor_user.id, action="CREATE_PRESCRIPTION",
+            resource="prescriptions", resource_id=prescription.id,
+        ))
+        await self.db.commit()
+
+        result = await self.db.execute(
+            select(Prescription)
+            .where(Prescription.id == prescription.id)
+            .options(selectinload(Prescription.drug))
+        )
+        prescription = result.scalar_one()
+        return PrescriptionResponse.model_validate(prescription)
+
+    async def get_prescription(self, prescription_id: uuid.UUID, requesting_user: User) -> PrescriptionResponse:
+        result = await self.db.execute(
+            select(Prescription)
+            .where(Prescription.id == prescription_id)
+            .options(selectinload(Prescription.drug))
+        )
+        prescription = result.scalar_one_or_none()
+        if not prescription:
+            raise HTTPException(status_code=404, detail="Prescription not found")
+
+        if requesting_user.role == UserRole.PATIENT:
+            patient_result = await self.db.execute(
+                select(Patient).where(Patient.user_id == requesting_user.id)
+            )
+            patient = patient_result.scalar_one_or_none()
+            if not patient or prescription.patient_id != patient.id:
+                raise HTTPException(status_code=403, detail="Access denied")
+
+        return PrescriptionResponse.model_validate(prescription)
+
+    async def get_patient_prescriptions(self, patient_id: uuid.UUID, requesting_user: User) -> list[PrescriptionResponse]:
+        if requesting_user.role == UserRole.PATIENT:
+            patient_result = await self.db.execute(
+                select(Patient).where(Patient.user_id == requesting_user.id)
+            )
+            patient = patient_result.scalar_one_or_none()
+            if not patient or patient.id != patient_id:
+                raise HTTPException(status_code=403, detail="Access denied")
+
+        result = await self.db.execute(
+            select(Prescription)
+            .where(Prescription.patient_id == patient_id)
+            .options(selectinload(Prescription.drug))
+            .order_by(Prescription.created_at.desc())
+        )
+        prescriptions = result.scalars().all()
+        return [PrescriptionResponse.model_validate(p) for p in prescriptions]
+
+    async def cancel_prescription(self, prescription_id: uuid.UUID, data: PrescriptionCancelRequest, doctor_user: User) -> PrescriptionResponse:
+        doctor = await self._get_doctor_record(doctor_user)
+
+        result = await self.db.execute(
+            select(Prescription)
+            .where(Prescription.id == prescription_id)
+            .options(selectinload(Prescription.drug))
+        )
+        prescription = result.scalar_one_or_none()
+        if not prescription:
+            raise HTTPException(status_code=404, detail="Prescription not found")
+        if prescription.doctor_id != doctor.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        if prescription.status != PrescriptionStatus.ACTIVE:
+            raise HTTPException(status_code=400, detail="Prescription is not active")
+
+        if prescription.esoz_request_id:
+            try:
+                await esoz.cancel_prescription(str(prescription.esoz_request_id), data.reason)
+            except Exception:
+                pass
+
+        prescription.status = PrescriptionStatus.CANCELLED
+        self.db.add(AuditLog(
+            user_id=doctor_user.id, action="CANCEL_PRESCRIPTION",
+            resource="prescriptions", resource_id=prescription.id,
+        ))
+        await self.db.commit()
+        await self.db.refresh(prescription)
+        return PrescriptionResponse.model_validate(prescription)
+
+    async def search_drugs(self, query: str, limit: int = 20) -> list[DrugResponse]:
+        limit = min(limit, 50)
+        pattern = f"%{query}%"
+        result = await self.db.execute(
+            select(Drug)
+            .where(
+                Drug.is_active == True,
+                (Drug.inn.ilike(pattern) | Drug.trade_name.ilike(pattern) | Drug.atc_code.ilike(pattern)),
+            )
+            .limit(limit)
+        )
+        drugs = result.scalars().all()
+        return [DrugResponse.model_validate(d) for d in drugs]

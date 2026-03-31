@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <title>Виписний лист</title>
+  <style>
+    body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 12px; color: #222; margin: 30px; }
+    h1 { text-align: center; font-size: 18px; margin-bottom: 4px; }
+    h2 { text-align: center; font-size: 14px; color: #444; margin-top: 0; }
+    .section { margin-top: 16px; }
+    .section-title { font-weight: bold; border-bottom: 1px solid #aaa; margin-bottom: 6px; padding-bottom: 2px; }
+    .field { margin: 4px 0; }
+    .field label { font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th { background: #e8e8e8; border: 1px solid #ccc; padding: 5px; text-align: left; }
+    td { border: 1px solid #ccc; padding: 5px; }
+    .footer { margin-top: 40px; border-top: 1px solid #ccc; padding-top: 10px; font-size: 11px; color: #666; text-align: right; }
+  </style>
+</head>
+<body>
+  <h1>ВИПИСНИЙ ЛИСТ</h1>
+  <h2>МедЛінк УА — Первинна медична допомога</h2>
+
+  <div class="section">
+    <div class="section-title">Інформація про прийом</div>
+    <div class="field"><label>Дата прийому:</label> {{ encounter.started_at.strftime('%d.%m.%Y %H:%M') if encounter.started_at else '—' }}</div>
+    <div class="field"><label>Дата виписки:</label> {{ encounter.completed_at.strftime('%d.%m.%Y %H:%M') if encounter.completed_at else '—' }}</div>
+    <div class="field"><label>Статус:</label> {{ encounter.status.value }}</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Пацієнт</div>
+    {% if patient %}
+    <div class="field"><label>ПІБ:</label> {{ patient.last_name }} {{ patient.first_name }} {{ patient.middle_name or '' }}</div>
+    <div class="field"><label>Дата народження:</label> {{ patient.birth_date }}</div>
+    {% else %}
+    <div class="field">Інформація про пацієнта відсутня</div>
+    {% endif %}
+  </div>
+
+  <div class="section">
+    <div class="section-title">Лікар</div>
+    {% if doctor %}
+    <div class="field"><label>ПІБ:</label> {{ doctor.user.full_name if doctor.user else '—' }}</div>
+    <div class="field"><label>Спеціалізація:</label> {{ doctor.specialization.name_ua if doctor.specialization else '—' }}</div>
+    {% else %}
+    <div class="field">Інформація про лікаря відсутня</div>
+    {% endif %}
+  </div>
+
+  {% if encounter.complaints %}
+  <div class="section">
+    <div class="section-title">Скарги</div>
+    <div>{{ encounter.complaints }}</div>
+  </div>
+  {% endif %}
+
+  {% if encounter.anamnesis %}
+  <div class="section">
+    <div class="section-title">Анамнез</div>
+    <div>{{ encounter.anamnesis }}</div>
+  </div>
+  {% endif %}
+
+  {% if encounter.objective_exam %}
+  <div class="section">
+    <div class="section-title">Об'єктивне обстеження</div>
+    <div>{{ encounter.objective_exam }}</div>
+  </div>
+  {% endif %}
+
+  {% if encounter.diagnoses %}
+  <div class="section">
+    <div class="section-title">Діагнози</div>
+    <table>
+      <tr><th>Тип</th><th>Код МКБ-10</th><th>Назва</th><th>Примітки</th></tr>
+      {% for d in encounter.diagnoses %}
+      <tr>
+        <td>{{ d.type.value }}</td>
+        <td>{{ d.icd10.code if d.icd10 else '—' }}</td>
+        <td>{{ d.icd10.name_ua if d.icd10 else '—' }}</td>
+        <td>{{ d.notes or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% endif %}
+
+  {% if encounter.treatment_plan %}
+  <div class="section">
+    <div class="section-title">План лікування</div>
+    <div>{{ encounter.treatment_plan }}</div>
+  </div>
+  {% endif %}
+
+  {% if encounter.recommendations %}
+  <div class="section">
+    <div class="section-title">Рекомендації</div>
+    <div>{{ encounter.recommendations }}</div>
+  </div>
+  {% endif %}
+
+  <div class="footer">
+    Документ сформовано автоматично системою МедЛінк УА
+  </div>
+</body>
+</html>
