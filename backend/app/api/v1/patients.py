@@ -30,7 +30,7 @@ _doctor_only = require_roles(UserRole.DOCTOR, UserRole.SUPER_ADMIN)
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=PatientResponse, status_code=201)
+@router.post("", response_model=PatientResponse, status_code=201)
 async def create_patient(
     data: PatientCreate,
     current_user: Annotated[User, Depends(_doctor_or_admin)],
@@ -42,7 +42,7 @@ async def create_patient(
     return await svc.create_patient(data, created_by_user_id=current_user.id)
 
 
-@router.get("/", response_model=list[PatientResponse])
+@router.get("", response_model=list[PatientResponse])
 async def list_patients(
     current_user: Annotated[User, Depends(_doctor_or_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],

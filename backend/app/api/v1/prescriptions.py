@@ -23,7 +23,7 @@ _doctor_or_patient = require_roles(
 )
 
 
-@router.post("/", response_model=PrescriptionResponse, status_code=201)
+@router.post("", response_model=PrescriptionResponse, status_code=201)
 async def create_prescription(
     data: PrescriptionCreate,
     current_user: Annotated[User, Depends(require_doctor)],

@@ -34,6 +34,13 @@ class SmokingStatus(str, enum.Enum):
     UNKNOWN = "UNKNOWN"
 
 
+class AlcoholStatus(str, enum.Enum):
+    NEVER   = "NEVER"
+    FORMER  = "FORMER"
+    CURRENT = "CURRENT"
+    UNKNOWN = "UNKNOWN"
+
+
 class AllergySeverity(str, enum.Enum):
     MILD     = "MILD"
     MODERATE = "MODERATE"
@@ -94,6 +101,8 @@ class MedicalCard(Base):
     height_cm: Mapped[int | None] = mapped_column(SmallInteger)
     weight_kg: Mapped[float | None] = mapped_column(Numeric(5, 1))
     smoking_status: Mapped[SmokingStatus] = mapped_column(SAEnum(SmokingStatus), default=SmokingStatus.UNKNOWN)
+    alcohol_status: Mapped[AlcoholStatus] = mapped_column(SAEnum(AlcoholStatus), default=AlcoholStatus.UNKNOWN)
+    disability_group: Mapped[str | None] = mapped_column(String(50))
     notes: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
     updated_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))

@@ -37,7 +37,7 @@ async def get_today_appointments(
     return await EncounterService(db, redis).get_today_appointments(current_user)
 
 
-@router.get("/", response_model=list[AppointmentResponse])
+@router.get("", response_model=list[AppointmentResponse])
 async def list_appointments(
     current_user: Annotated[User, Depends(_doctor_or_patient)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -48,7 +48,7 @@ async def list_appointments(
     return await AppointmentService(db, redis).list_appointments(current_user, skip, limit)
 
 
-@router.post("/", response_model=AppointmentResponse, status_code=201)
+@router.post("", response_model=AppointmentResponse, status_code=201)
 async def create_appointment(
     data: AppointmentCreate,
     current_user: Annotated[User, Depends(_patient_only)],

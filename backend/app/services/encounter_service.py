@@ -79,7 +79,10 @@ class EncounterService:
         return encounter
 
     async def get_today_appointments(self, doctor_user: User) -> list[AppointmentTodayResponse]:
-        doctor = await self._get_doctor_record(doctor_user)
+        result = await self.db.execute(select(Doctor).where(Doctor.user_id == doctor_user.id))
+        doctor = result.scalar_one_or_none()
+        if not doctor:
+            return []
         today = date.today()
         start = datetime(today.year, today.month, today.day, 0, 0, 0, tzinfo=timezone.utc)
         end = datetime(today.year, today.month, today.day, 23, 59, 59, tzinfo=timezone.utc)

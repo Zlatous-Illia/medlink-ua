@@ -6,7 +6,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from app.models.patient import BloodType, SmokingStatus, AllergySeverity
+from app.models.patient import BloodType, SmokingStatus, AlcoholStatus, AllergySeverity
 from app.models.clinical import EncounterStatus, DiagnosisType, PrescriptionStatus
 from app.models.user import UserRole
 
@@ -71,6 +71,8 @@ class MedicalCardReadResponse(BaseModel):
     height_cm: Optional[int]
     weight_kg: Optional[float]
     smoking_status: SmokingStatus
+    alcohol_status: Optional[AlcoholStatus]
+    disability_group: Optional[str]
     notes: Optional[str]
     allergies: list[AllergyReadResponse]
     chronic_diseases: list[ChronicDiseaseReadResponse]

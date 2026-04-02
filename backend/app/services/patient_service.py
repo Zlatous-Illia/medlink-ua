@@ -167,6 +167,8 @@ class PatientService:
             height_cm=card.height_cm,
             weight_kg=float(card.weight_kg) if card.weight_kg is not None else None,
             smoking_status=card.smoking_status,
+            alcohol_status=card.alcohol_status,
+            disability_group=card.disability_group,
             notes=card.notes,
             allergies=[AllergyResponse.model_validate(a) for a in patient.allergies],
             chronic_diseases=[

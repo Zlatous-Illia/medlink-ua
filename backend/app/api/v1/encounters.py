@@ -26,7 +26,7 @@ _doctor_or_patient = require_roles(
 )
 
 
-@router.post("/", response_model=EncounterResponse, status_code=201)
+@router.post("", response_model=EncounterResponse, status_code=201)
 async def create_encounter(
     data: EncounterCreate,
     current_user: Annotated[User, Depends(require_doctor)],

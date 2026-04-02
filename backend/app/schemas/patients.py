@@ -6,7 +6,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models.patient import Gender, BloodType, SmokingStatus, AllergySeverity
+from app.models.patient import Gender, BloodType, SmokingStatus, AlcoholStatus, AllergySeverity
 
 
 # ─── Patient ─────────────────────────────────────────────────────────────────
@@ -112,6 +112,8 @@ class MedicalCardUpdate(BaseModel):
     height_cm: Optional[int] = None
     weight_kg: Optional[float] = None
     smoking_status: Optional[SmokingStatus] = None
+    alcohol_status: Optional[AlcoholStatus] = None
+    disability_group: Optional[str] = None
     notes: Optional[str] = None
 
 
@@ -124,6 +126,8 @@ class MedicalCardResponse(BaseModel):
     height_cm: Optional[int] = None
     weight_kg: Optional[float] = None
     smoking_status: Optional[SmokingStatus] = None
+    alcohol_status: Optional[AlcoholStatus] = None
+    disability_group: Optional[str] = None
     notes: Optional[str] = None
     allergies: list[AllergyResponse] = []
     chronic_diseases: list[ChronicDiseaseResponse] = []
