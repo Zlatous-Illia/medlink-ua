@@ -20,6 +20,7 @@ from app.schemas.auth import (
     TokenResponse, LoginStep1Response, UserResponse,
     ForgotPasswordRequest, ResetPasswordRequest,
 )
+import app.services.email_service as email_service
 
 
 def _hash_token(token: str) -> str:
@@ -90,9 +91,10 @@ class AuthService:
             otp,
         )
 
-        # TODO: send email with OTP
-        # In development, log OTP to console:
+        # Always log OTP to console for dev visibility:
         print(f"[DEV] OTP for {user.email}: {otp}")
+        # Also send real email (skipped when SMTP credentials are not set):
+        await email_service.send_otp(user.email, user.first_name or "", otp)
 
         await self.db.execute(
             AuditLog.__table__.insert().values(
@@ -201,8 +203,10 @@ class AuthService:
         token = secrets.token_urlsafe(32)
         await self.redis.setex(f"pwd_reset:{token}", 3600, str(user.id))
 
-        if settings.DEBUG:
-            print(f"[DEV] Password reset token for {user.email}: {token}")
+        # Always log reset token to console for dev visibility:
+        print(f"[DEV] Password reset token for {user.email}: {token}")
+        # Also send real email (skipped when SMTP credentials are not set):
+        await email_service.send_password_reset(user.email, user.first_name or "", token)
 
         self.db.add(AuditLog(
             user_id=user.id, action="PASSWORD_RESET_REQUEST",

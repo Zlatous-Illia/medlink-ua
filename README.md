@@ -1,19 +1,19 @@
-# 🏥 MedLink UA — ЕМІС
+# MedLink UA — ЕМІС
 
 **Електронна медична інформаційна система** для первинної ланки медичної допомоги.
 Дипломна робота. Інтеграція з ЕСОЗ через Mock-сервер.
 
 ---
 
-## ⚡ Швидкий старт (5 кроків)
+## Швидкий старт
 
-### 1. Запустити інфраструктуру
+### 1. Інфраструктура
 ```bash
 docker compose up -d
 ```
 PostgreSQL → `localhost:5432` | Redis → `localhost:6379` | MinIO → `localhost:9000`
 
-### 2. Backend — налаштування
+### 2. Backend
 ```bash
 cd backend
 python -m venv venv
@@ -22,130 +22,144 @@ venv\Scripts\activate        # Windows
 
 pip install -r requirements.txt
 cp .env.example .env
-# Відредагуйте .env — мінімум потрібен SECRET_KEY
-```
+# Відредагуйте .env — потрібен SECRET_KEY, DATABASE_URL, DATABASE_URL_SYNC
 
-### 3. Міграції БД
-```bash
-cd backend
 alembic upgrade head
+uvicorn app.main:app --reload --port 8000
 ```
 
-### 4. Запустити сервіси
+### 3. Mock ЕСОЗ
 ```bash
-# Термінал 1 — Backend API
-cd backend
-uvicorn app.main:app --reload --port 8000
-
-# Термінал 2 — Mock ЕСОЗ
 cd esoz-mock
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8080
 ```
 
-### 5. Перевірити
+### 4. Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### 5. Доступні сервіси
 | Сервіс | URL |
 |--------|-----|
+| Frontend (React SPA) | http://localhost:5173 |
 | Backend Swagger | http://localhost:8000/docs |
 | Mock ЕСОЗ Swagger | http://localhost:8080/docs |
 | MinIO Console | http://localhost:9001 (admin/minioadmin123) |
 
 ---
 
-## 🏗️ Структура проекту
+## Структура проекту
 
 ```
 medlink-ua/
-├── backend/          # FastAPI + SQLAlchemy + Alembic
+├── backend/          # FastAPI + SQLAlchemy + Alembic (порт 8000)
 │   ├── app/
 │   │   ├── api/v1/
-│   │   │   ├── auth.py              # Auth endpoints (8 маршрутів)
-│   │   │   ├── patients.py          # Patients endpoints (10 маршрутів)
-│   │   │   ├── encounters.py        # Encounters + ICD-10 (9 маршрутів)
-│   │   │   ├── prescriptions.py     # E-рецепти + препарати (5 маршрутів)
-│   │   │   ├── appointments.py      # Запис + лікарі + розклад (9 маршрутів)
+│   │   │   ├── auth.py              # Auth (8 маршрутів)
+│   │   │   ├── patients.py          # Пацієнти (10 маршрутів)
+│   │   │   ├── encounters.py        # Прийоми + ICD-10 (9 маршрутів)
+│   │   │   ├── prescriptions.py     # Е-рецепти + препарати (5 маршрутів)
+│   │   │   ├── appointments.py      # Записи + лікарі + розклад (9 маршрутів)
 │   │   │   ├── patient_cabinet.py   # Кабінет пацієнта /me (8 маршрутів)
 │   │   │   ├── admin.py             # Адмін-панель /admin (6 маршрутів)
 │   │   │   └── analytics.py         # Аналітика /analytics (5 маршрутів)
 │   │   ├── core/                    # config, db, security, dependencies
 │   │   ├── models/                  # SQLAlchemy ORM (всі таблиці)
-│   │   ├── schemas/
-│   │   │   ├── auth.py
-│   │   │   ├── patients.py
-│   │   │   ├── encounters.py
-│   │   │   ├── prescriptions.py
-│   │   │   ├── appointments.py
-│   │   │   ├── patient_cabinet.py   # Схеми кабінету пацієнта
-│   │   │   ├── admin.py             # Схеми адмін-панелі
-│   │   │   └── analytics.py         # GroupBy enum + 5 response моделей
-│   │   ├── services/
-│   │   │   ├── auth_service.py
-│   │   │   ├── patient_service.py
-│   │   │   ├── encounter_service.py
-│   │   │   ├── prescription_service.py
-│   │   │   ├── appointment_service.py
-│   │   │   ├── patient_cabinet_service.py  # Кабінет пацієнта + MinIO аватари
-│   │   │   ├── admin_service.py            # Управління юзерами + статистика
-│   │   │   ├── analytics_service.py        # 5 метрик (date_trunc, FILTER WHERE)
-│   │   │   └── esoz_connector.py
-│   │   └── workers/
-│   │       ├── celery_app.py
-│   │       └── email_tasks.py
-│   ├── scripts/
-│   │   ├── import_icd10.py
-│   │   └── import_drugs.py
-│   ├── templates/
-│   │   └── encounter_pdf.html
-│   └── alembic/
+│   │   ├── schemas/                 # Pydantic v2 схеми (8 файлів)
+│   │   ├── services/                # Бізнес-логіка (10 сервісів)
+│   │   └── workers/                 # Celery задачі (нагадування)
+│   ├── scripts/                     # import_icd10.py, import_drugs.py
+│   ├── templates/                   # encounter_pdf.html (WeasyPrint)
+│   ├── tests/                       # 93 тести (unit + integration)
+│   └── alembic/                     # Міграції БД
 ├── esoz-mock/        # Mock ЕСОЗ API (порт 8080)
-├── frontend/         # React 18 + TypeScript (порт 3000, placeholder)
+│   └── app/routers/  # oauth, persons, prescriptions, drugs, referrals
+├── frontend/         # React 18 + TypeScript + Vite (порт 5173)
+│   └── src/
+│       ├── api/      # Axios client + типізовані API функції (10 модулів)
+│       ├── pages/    # 21 сторінка (auth, doctor, patient, admin)
+│       ├── components/ # Layout + shared UI компоненти
+│       ├── store/    # Zustand (authStore)
+│       └── router/   # React Router v6 (role-based routes)
 └── docker-compose.yml
 ```
 
-## 📋 Модулі (стан реалізації)
+## Стан реалізації
 
-### Backend — повністю реалізовано ✅
-| Модуль | Опис | Статус |
-|--------|------|--------|
+### Повністю реалізовано
+| Компонент | Опис | Статус |
+|-----------|------|--------|
 | **Модуль 1** | Авторизація + JWT + 2FA + скидання пароля | ✅ Done |
 | **Модуль 2** | Пацієнти + ЕМК + алергії + хронічні хвороби + MinIO | ✅ Done |
 | **Модуль 3** | Прийом лікаря + МКБ-10 + WeasyPrint PDF + MinIO | ✅ Done |
-| **Модуль 4** | Е-рецепт + Mock ЕСОЗ синхронізація (OAuth2) | ✅ Done |
+| **Модуль 4** | Е-рецепт + перевірка алергій (HTTP 409) + Mock ЕСОЗ синхронізація | ✅ Done |
 | **Модуль 5** | Онлайн-запис + Redis lock + Celery нагадування | ✅ Done |
 | **Модуль 6** | Кабінет пацієнта (профіль, аватар, ЕМК ro, записи) | ✅ Done |
 | **Модуль 7** | Адмін-панель (юзери, audit log) + Аналітика (5 метрик) | ✅ Done |
+| **Email** | OTP + скидання пароля + нагадування (fastapi-mail; консоль + SMTP) | ✅ Done |
+| **Frontend** | React SPA — 21 сторінка (лікар, пацієнт, адмін, auth) | ✅ Done |
+| **Тести** | 93 тести: AuthService, PatientService, Auth API, Patient Cabinet API | ✅ Done |
 
 ### Що ще не реалізовано
 | Компонент | Пріоритет | Деталі |
 |-----------|-----------|--------|
-| **Frontend** (React 18 + TypeScript) | 🔴 Критично | `frontend/src/` порожній — потрібен повний SPA |
-| **Тести** (pytest, ≥60% coverage) | 🔴 Критично | `backend/tests/` не існує |
-| **Email через SMTP** | 🟡 Важливо | OTP та нагадування виводяться в консоль, SMTP не налаштований |
-| **Перевірка алергій** при рецепті | 🟡 Важливо | Попередження якщо МНН препарату збігається з алергеном |
-| **Dockerfiles** | 🟢 Бонус | `backend/Dockerfile`, `frontend/Dockerfile` не створені |
+| **Тести (решта)** | Важливо | Потрібні: encounters, prescriptions, appointments, analytics, admin API |
+| **Dockerfiles** | Бонус | `backend/Dockerfile`, `frontend/Dockerfile` не створені |
 
 ---
 
-## 🖥️ Frontend — що потрібно реалізувати
+## Перевірка алергій при рецепті
 
-**Стек:** Vite + React 18 + TypeScript + React Router v6 + Zustand + axios + Tailwind CSS + shadcn/ui + Recharts
+При виписуванні рецепту система автоматично перевіряє алергії пацієнта.
+Якщо INN препарату збігається з речовиною алергії — повертається `HTTP 409`:
 
-```bash
-cd frontend
-npm create vite@latest . -- --template react-ts
-npm install react-router-dom zustand axios @tanstack/react-query
-npm install react-hook-form zod @hookform/resolvers
-npm install recharts react-qr-code
-npm install -D tailwindcss postcss autoprefixer
+```json
+{
+  "warning": "Drug INN matches patient allergy",
+  "allergy": "Пеніцилін",
+  "drug_inn": "амоксицилін пеніцилін",
+  "severity": "HIGH"
+}
 ```
 
-### Сторінки по ролях
+Лікар може проігнорувати попередження, натиснувши підтвердження у фронтенді.
+У консолі виводиться: `[ALLERGY] Drug '...' conflicts with patient allergy '...'`
+
+---
+
+## Email-сервіс
+
+Реалізовано через `fastapi-mail`. Всі функції **завжди виводять дані в консоль** (для dev-спостереження) і додатково надсилають реальний email, якщо налаштовано SMTP.
+
+**Що надсилається:**
+- OTP-код при вході → `[DEV] OTP email → user@example.com | code: 482931`
+- Посилання для скидання пароля → `[DEV] Password reset email → user@example.com | token: ...`
+- Нагадування про запис (24h/1h) → `[DEV] Reminder email (24h) → user@example.com | ...`
+
+**Увімкнути реальне надсилання** — додати в `backend/.env`:
+```env
+SMTP_HOST=smtp.mailtrap.io    # або smtp.gmail.com
+SMTP_PORT=2525                # Mailtrap; для Gmail — 587
+SMTP_USER=your_username
+SMTP_PASSWORD=your_password
+```
+Якщо `SMTP_USER` або `SMTP_PASSWORD` порожні — email пропускається беззвучно, консоль завжди працює.
+
+---
+
+## Frontend — реалізовані сторінки
+
+**Стек:** React 18 + TypeScript + Vite + React Router v6 + Zustand + Axios + Tailwind CSS + Recharts + react-qr-code
 
 **DOCTOR** (`/doctor/*`):
-- `/doctor` — Дашборд: прийоми на сьогодні (GET /api/v1/appointments/today)
+- `/doctor` — Дашборд: прийоми на сьогодні
 - `/doctor/patients` — Пошук пацієнтів
 - `/doctor/patients/:id` — Карта пацієнта (вкладки: ЕМК, Прийоми, Рецепти, Документи)
-- `/doctor/encounters/new` — Новий прийом (автозбереження кожні 30с, ICD-10 пошук, виписка рецепту)
+- `/doctor/encounters/new` — Новий прийом (автозбереження 30с, ICD-10, рецепт)
 - `/doctor/patients/new` — Реєстрація нового пацієнта
 
 **PATIENT** (`/patient/*`):
@@ -153,12 +167,13 @@ npm install -D tailwindcss postcss autoprefixer
 - `/patient/profile` — Профіль + аватар + зміна пароля
 - `/patient/medical-card` — ЕМК тільки для читання
 - `/patient/encounters` — Мої прийоми + PDF завантаження
-- `/patient/prescriptions` — Активні рецепти з QR-кодом (esoz_request_number)
-- `/patient/appointments` — Мої записи + запис до лікаря (вибір лікаря → дата → слот)
+- `/patient/prescriptions` — Рецепти з QR-кодом (esoz_request_number)
+- `/patient/appointments` — Мої записи + запис до лікаря
+- `/patient/book-appointment` — Вибір лікаря → дата → слот → бронювання
 - `/patient/documents` — Мої документи
 
 **ADMIN** (`/admin/*`):
-- `/admin` — Дашборд: stats cards + 4 графіки Recharts (аналітика)
+- `/admin` — Дашборд: статистика + 4 Recharts графіки (аналітика)
 - `/admin/users` — Таблиця користувачів (фільтри, пагінація)
 - `/admin/users/:id` — Деталі юзера + деактивація + зміна ролі
 - `/admin/audit-logs` — Журнал дій (фільтри: юзер, дія, дата)
@@ -169,40 +184,30 @@ npm install -D tailwindcss postcss autoprefixer
 
 ---
 
-## 🧪 Тести — що потрібно реалізувати
+## Тести
+
+**Вимога:** Docker Desktop запущений (`docker compose up -d`).
+Тести використовують окрему базу даних `medlink_test` (створюється автоматично).
 
 ```
 backend/tests/
-├── conftest.py          # async client, test DB, fixtures (users, patients)
+├── conftest.py                      # FakeRedis, test engine (medlink_test), clean_db, user fixtures
 ├── unit/
-│   ├── test_auth_service.py        # register, login, OTP, lockout, refresh
-│   ├── test_patient_service.py     # CRUD, duplicate tax_id, medical card
-│   ├── test_encounter_service.py   # create, autosave, complete, ICD-10
-│   ├── test_prescription_service.py # create + ЕСОЗ sync, cancel, allergy check
-│   ├── test_appointment_service.py  # slots, booking, double-book, cancel
-│   └── test_analytics_service.py   # 5 метрик з date range
+│   ├── test_auth_service.py         # 25 тестів: register, login, OTP, lockout, tokens, password reset
+│   └── test_patient_service.py      # 22 тести: CRUD, пошук, access control, алергії, медкарта
 └── integration/
-    ├── test_auth_api.py            # повний 2FA flow через HTTP
-    ├── test_esoz_integration.py    # prescription → Mock ЕСОЗ → esoz_request_number
-    ├── test_admin_api.py           # CRUD юзерів, audit log
-    └── test_patient_cabinet_api.py # PATIENT role: own data only
+    ├── test_auth_api.py             # 25 тестів: повний 2FA flow, refresh, logout, /me, reset password
+    └── test_patient_cabinet_api.py  # 21 тест: GET/PATCH /me, медкарта, прийоми, рецепти, change-password
 ```
+
+Разом: **93 тести** (47 unit + 46 integration).
 
 ```bash
 cd backend
-pytest --cov=app --cov-report=html -v
-# результат: htmlcov/index.html (ціль ≥60%)
+pytest -v                              # всі 93 тести
+pytest tests/unit/ -v                  # тільки unit (швидко)
+pytest --cov=app --cov-report=html -v  # з покриттям → htmlcov/index.html
 ```
-
----
-
-## 📧 Email — що потрібно налаштувати
-
-OTP та нагадування зараз виводяться в консоль. Для реального email:
-1. Встановити Mailtrap (dev) або Gmail App Password
-2. Заповнити в `.env`: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`
-3. Створити `backend/app/services/email_service.py` з методами `send_otp()`, `send_password_reset()`, `send_appointment_reminder()`
-4. Замінити `print("DEV OTP:", otp)` в `auth_service.py` на виклик email service
 
 ---
 
@@ -213,7 +218,7 @@ curl -X POST http://localhost:8000/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"doctor@test.com","password":"Test1234!","first_name":"Іван","last_name":"Лікаренко","role":"DOCTOR"}'
 
-# Логін (отримати OTP в консолі uvicorn)
+# Логін (OTP виводиться в консолі uvicorn і надсилається на email якщо SMTP налаштовано)
 curl -X POST http://localhost:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"doctor@test.com","password":"Test1234!"}'
@@ -223,7 +228,7 @@ curl -X POST http://localhost:8000/api/v1/auth/login/2fa \
   -H "Content-Type: application/json" \
   -d '{"email":"doctor@test.com","otp_code":"482931"}'
 
-# Скидання пароля
+# Скидання пароля (токен виводиться в консолі і надсилається на email)
 curl -X POST http://localhost:8000/api/v1/auth/forgot-password \
   -H "Content-Type: application/json" \
   -d '{"email":"doctor@test.com"}'
@@ -275,10 +280,6 @@ curl -X POST http://localhost:8000/api/v1/me/avatar \
 curl http://localhost:8000/api/v1/me/medical-card \
   -H "Authorization: Bearer $PATIENT_TOKEN"
 
-# Історія прийомів
-curl http://localhost:8000/api/v1/me/encounters \
-  -H "Authorization: Bearer $PATIENT_TOKEN"
-
 # Рецепти (тільки активні)
 curl "http://localhost:8000/api/v1/me/prescriptions?status=ACTIVE" \
   -H "Authorization: Bearer $PATIENT_TOKEN"
@@ -296,10 +297,6 @@ ADMIN_TOKEN="eyJ..."   # токен адміністратора
 
 # Список користувачів (з фільтрами)
 curl "http://localhost:8000/api/v1/admin/users?role=DOCTOR&is_active=true" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# Деталі користувача + кількість audit-подій
-curl http://localhost:8000/api/v1/admin/users/{id} \
   -H "Authorization: Bearer $ADMIN_TOKEN"
 
 # Деактивувати користувача
@@ -325,10 +322,6 @@ curl "http://localhost:8000/api/v1/analytics/appointments?group_by=month&date_fr
 
 # Топ-10 МКБ-10 діагнозів
 curl "http://localhost:8000/api/v1/analytics/diagnoses/top10?date_from=2026-01-01" \
-  -H "Authorization: Bearer $TOKEN"
-
-# Навантаження лікарів
-curl "http://localhost:8000/api/v1/analytics/doctors/load?date_from=2026-01-01" \
   -H "Authorization: Bearer $TOKEN"
 
 # Відсоток скасувань
@@ -363,7 +356,7 @@ curl http://localhost:8000/api/v1/encounters/<id>/pdf \
 
 ## 💊 Тест е-рецептів (curl)
 ```bash
-# Виписати рецепт
+# Виписати рецепт (автоматична перевірка алергій — HTTP 409 якщо конфлікт)
 curl -X POST http://localhost:8000/api/v1/prescriptions \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \

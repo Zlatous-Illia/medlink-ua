@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.clinical import Prescription, PrescriptionStatus, Encounter
 from app.models.doctor import Doctor
-from app.models.patient import Patient
+from app.models.patient import Patient, Allergy
 from app.models.reference import Drug
 from app.models.user import AuditLog, User, UserRole
 from app.schemas.prescriptions import (
@@ -54,6 +54,30 @@ class PrescriptionService:
         drug = drug_result.scalar_one_or_none()
         if not drug:
             raise HTTPException(status_code=404, detail="Drug not found")
+
+        # ─── Allergy check ────────────────────────────────────────────────────
+        if drug.inn:
+            allergy_result = await self.db.execute(
+                select(Allergy).where(Allergy.patient_id == encounter.patient_id)
+            )
+            allergies = allergy_result.scalars().all()
+            drug_inn_lower = drug.inn.lower()
+            for allergy in allergies:
+                substance_lower = allergy.substance.lower()
+                if substance_lower in drug_inn_lower or drug_inn_lower in substance_lower:
+                    print(
+                        f"[ALLERGY] Drug '{drug.inn}' conflicts with patient allergy "
+                        f"'{allergy.substance}' (severity: {allergy.severity.value})"
+                    )
+                    raise HTTPException(
+                        status_code=409,
+                        detail={
+                            "warning": "Drug INN matches patient allergy",
+                            "allergy": allergy.substance,
+                            "drug_inn": drug.inn,
+                            "severity": allergy.severity.value,
+                        },
+                    )
 
         prescription = Prescription(
             encounter_id=data.encounter_id,
