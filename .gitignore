@@ -291,5 +291,6 @@ pyrightconfig.json
 
 backend/venv/
 backend/.env
+backend/htmlcov/
 
 frontend/node_modules/

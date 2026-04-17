@@ -7,13 +7,25 @@
 
 ## Швидкий старт
 
-### 1. Інфраструктура
+### Варіант A — Повний Docker-стек (одна команда)
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
-PostgreSQL → `localhost:5432` | Redis → `localhost:6379` | MinIO → `localhost:9000`
+Піднімає все: PostgreSQL, Redis, MinIO, esoz-mock, backend, frontend.
 
-### 2. Backend
+> Після першого запуску потрібно виконати міграції:
+> ```bash
+> docker compose exec backend alembic upgrade head
+> ```
+
+### Варіант B — Локальна розробка
+
+#### 1. Інфраструктура
+```bash
+docker compose up -d postgres redis minio
+```
+
+#### 2. Backend
 ```bash
 cd backend
 python -m venv venv
@@ -28,21 +40,21 @@ alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
 
-### 3. Mock ЕСОЗ
+#### 3. Mock ЕСОЗ
 ```bash
 cd esoz-mock
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8080
 ```
 
-### 4. Frontend
+#### 4. Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### 5. Доступні сервіси
+### Доступні сервіси
 | Сервіс | URL |
 |--------|-----|
 | Frontend (React SPA) | http://localhost:5173 |
@@ -96,19 +108,21 @@ medlink-ua/
 | **Модуль 1** | Авторизація + JWT + 2FA + скидання пароля | ✅ Done |
 | **Модуль 2** | Пацієнти + ЕМК + алергії + хронічні хвороби + MinIO | ✅ Done |
 | **Модуль 3** | Прийом лікаря + МКБ-10 + WeasyPrint PDF + MinIO | ✅ Done |
+| **Е-направлення** | Створення направлення + ЕСОЗ sync + вкладка "Направлення" в картці пацієнта | ✅ Done |
 | **Модуль 4** | Е-рецепт + перевірка алергій (HTTP 409) + Mock ЕСОЗ синхронізація | ✅ Done |
 | **Модуль 5** | Онлайн-запис + Redis lock + Celery нагадування | ✅ Done |
 | **Модуль 6** | Кабінет пацієнта (профіль, аватар, ЕМК ro, записи) | ✅ Done |
 | **Модуль 7** | Адмін-панель (юзери, audit log) + Аналітика (5 метрик) | ✅ Done |
 | **Email** | OTP + скидання пароля + нагадування (fastapi-mail; консоль + SMTP) | ✅ Done |
-| **Frontend** | React SPA — 21 сторінка (лікар, пацієнт, адмін, auth) | ✅ Done |
+| **Frontend** | React SPA — 21 сторінка + вкладка Направлення (лікар, пацієнт, адмін, auth) | ✅ Done |
+| **Dockerfiles** | `backend/Dockerfile`, `esoz-mock/Dockerfile`, `frontend/Dockerfile` (multi-stage nginx) | ✅ Done |
+| **docker-compose.yml** | Повний стек одною командою: інфраструктура + backend + esoz-mock + frontend | ✅ Done |
 | **Тести** | 93 тести: AuthService, PatientService, Auth API, Patient Cabinet API | ✅ Done |
 
 ### Що ще не реалізовано
 | Компонент | Пріоритет | Деталі |
 |-----------|-----------|--------|
 | **Тести (решта)** | Важливо | Потрібні: encounters, prescriptions, appointments, analytics, admin API |
-| **Dockerfiles** | Бонус | `backend/Dockerfile`, `frontend/Dockerfile` не створені |
 
 ---
 
@@ -158,7 +172,7 @@ SMTP_PASSWORD=your_password
 **DOCTOR** (`/doctor/*`):
 - `/doctor` — Дашборд: прийоми на сьогодні
 - `/doctor/patients` — Пошук пацієнтів
-- `/doctor/patients/:id` — Карта пацієнта (вкладки: ЕМК, Прийоми, Рецепти, Документи)
+- `/doctor/patients/:id` — Карта пацієнта (вкладки: ЕМК, Прийоми, Рецепти, **Направлення**, Документи)
 - `/doctor/encounters/new` — Новий прийом (автозбереження 30с, ICD-10, рецепт)
 - `/doctor/patients/new` — Реєстрація нового пацієнта
 
@@ -189,9 +203,11 @@ SMTP_PASSWORD=your_password
 **Вимога:** Docker Desktop запущений (`docker compose up -d`).
 Тести використовують окрему базу даних `medlink_test` (створюється автоматично).
 
+> **Статус: 93/93 тестів проходять** (перевірено на Windows, Python 3.11)
+
 ```
 backend/tests/
-├── conftest.py                      # FakeRedis, test engine (medlink_test), clean_db, user fixtures
+├── conftest.py                      # FakeRedis, NullPool test engine (medlink_test), clean_db, user fixtures
 ├── unit/
 │   ├── test_auth_service.py         # 25 тестів: register, login, OTP, lockout, tokens, password reset
 │   └── test_patient_service.py      # 22 тести: CRUD, пошук, access control, алергії, медкарта
@@ -201,6 +217,13 @@ backend/tests/
 ```
 
 Разом: **93 тести** (47 unit + 46 integration).
+
+**Конфігурація (`pytest.ini`):** `asyncio_mode = auto`, `asyncio_default_fixture_loop_scope = session`
+
+**Windows-специфічні виправлення в `conftest.py`:**
+- `asyncio.WindowsSelectorEventLoopPolicy()` — замість ProactorEventLoop для сумісності з asyncpg
+- `poolclass=NullPool` на test_engine — нові з'єднання для кожного тесту, без пулу
+- `db_session` закриває сесію в `try/except` щоб придушити помилки teardown
 
 ```bash
 cd backend

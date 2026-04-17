@@ -7,6 +7,7 @@ export type SmokingStatus = 'NEVER' | 'FORMER' | 'CURRENT' | 'UNKNOWN'
 export type AlcoholStatus = 'NEVER' | 'FORMER' | 'CURRENT' | 'UNKNOWN'
 export type AllergySeverity = 'MILD' | 'MODERATE' | 'SEVERE'
 export type EncounterStatus = 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+export type ReferralStatus = 'ACTIVE' | 'USED' | 'CANCELLED' | 'EXPIRED'
 export type DiagnosisType = 'MAIN' | 'COMPLICATION' | 'CONCOMITANT'
 export type PrescriptionStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
 export type AppointmentStatus = 'SCHEDULED' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW'
@@ -151,6 +152,19 @@ export interface ICD10SearchResponse {
   name_ua: string
   name_en?: string
   category?: string
+}
+
+export interface ReferralResponse {
+  id: string
+  encounter_id: string
+  patient_id: string
+  doctor_id: string
+  specialization_id?: string
+  reason?: string
+  status: ReferralStatus
+  esoz_referral_id?: string
+  created_at: string
+  expires_at?: string
 }
 
 // ── Prescriptions ─────────────────────────────────────────────────────────────

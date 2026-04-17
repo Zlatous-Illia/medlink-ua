@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
-import { ArrowLeft, Stethoscope, Upload, AlertTriangle, Plus, Edit2, Search, X } from 'lucide-react'
+import { ArrowLeft, Stethoscope, Upload, AlertTriangle, Plus, Edit2, Search, X, ExternalLink } from 'lucide-react'
 import { patientsApi } from '../../api/patients'
 import { encountersApi } from '../../api/encounters'
 import { prescriptionsApi } from '../../api/prescriptions'
@@ -14,7 +14,7 @@ import type {
   BloodType, SmokingStatus, AlcoholStatus, AllergySeverity, DiagnosisType, ICD10SearchResponse,
 } from '../../api/types'
 
-const TABS = ['ЕМК', 'Прийоми', 'Рецепти', 'Документи'] as const
+const TABS = ['ЕМК', 'Прийоми', 'Рецепти', 'Направлення', 'Документи'] as const
 type Tab = typeof TABS[number]
 
 const SEVERITY_COLORS = {
@@ -104,6 +104,34 @@ export function PatientDetailPage() {
     queryKey: ['prescriptions', id],
     queryFn: () => prescriptionsApi.getByPatient(id!).then(r => r.data),
     enabled: !!id && tab === 'Рецепти',
+  })
+
+  const { data: referrals } = useQuery({
+    queryKey: ['referrals', id],
+    queryFn: () => encountersApi.getReferralsByPatient(id!).then(r => r.data),
+    enabled: !!id && tab === 'Направлення',
+  })
+
+  // Add referral form
+  const [showReferralForm, setShowReferralForm] = useState(false)
+  const [referralForm, setReferralForm] = useState({ encounter_id: '', reason: '' })
+  const { data: patientEncounters } = useQuery({
+    queryKey: ['encounters-for-referral', id],
+    queryFn: () => encountersApi.getByPatient(id!).then(r => r.data),
+    enabled: !!id && showReferralForm,
+  })
+
+  const addReferralMutation = useMutation({
+    mutationFn: () => encountersApi.createReferral(referralForm.encounter_id, {
+      reason: referralForm.reason || undefined,
+    }),
+    onSuccess: () => {
+      toast('success', 'Направлення створено та відправлено до ЕСОЗ')
+      setShowReferralForm(false)
+      setReferralForm({ encounter_id: '', reason: '' })
+      qc.invalidateQueries({ queryKey: ['referrals', id] })
+    },
+    onError: () => toast('error', 'Помилка створення направлення'),
   })
 
   const uploadMutation = useMutation({
@@ -561,6 +589,78 @@ export function PatientDetailPage() {
                 ))}
               </tbody>
             </table>
+          )}
+        </div>
+      )}
+
+      {/* ─── НАПРАВЛЕННЯ TAB ──────────────────────────────────────────────── */}
+      {tab === 'Направлення' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <button onClick={() => setShowReferralForm(v => !v)} className="btn-primary btn">
+              <Plus className="h-4 w-4" />
+              Нове направлення
+            </button>
+          </div>
+
+          {showReferralForm && (
+            <div className="card p-5 border-blue-200 bg-blue-50 space-y-4">
+              <h3 className="font-semibold text-gray-900">Е-направлення до спеціаліста</h3>
+              <div>
+                <label className="label">Прийом (для прив'язки)</label>
+                <select className="input" value={referralForm.encounter_id}
+                  onChange={e => setReferralForm(f => ({ ...f, encounter_id: e.target.value }))}>
+                  <option value="">— оберіть прийом —</option>
+                  {patientEncounters?.map(enc => (
+                    <option key={enc.id} value={enc.id}>
+                      {format(new Date(enc.started_at), 'dd.MM.yyyy HH:mm')} — {enc.status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">Причина направлення</label>
+                <textarea rows={3} className="input resize-none"
+                  placeholder="Причина, скарги, мета консультації…"
+                  value={referralForm.reason}
+                  onChange={e => setReferralForm(f => ({ ...f, reason: e.target.value }))} />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => addReferralMutation.mutate()}
+                  disabled={!referralForm.encounter_id || addReferralMutation.isPending}
+                  className="btn-primary btn-sm btn">
+                  Відправити до ЕСОЗ
+                </button>
+                <button onClick={() => setShowReferralForm(false)} className="btn-secondary btn-sm btn">
+                  Скасувати
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!referrals?.length ? (
+            <div className="card p-4"><EmptyState message="Направлень не знайдено" /></div>
+          ) : (
+            <div className="space-y-3">
+              {referrals.map(ref => (
+                <div key={ref.id} className="card p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <StatusBadge value={ref.status} />
+                    <span className="text-xs text-gray-400">
+                      {format(new Date(ref.created_at), 'dd.MM.yyyy HH:mm')}
+                    </span>
+                  </div>
+                  {ref.reason && <p className="text-sm text-gray-700 mb-2">{ref.reason}</p>}
+                  {ref.esoz_referral_id && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      ЕСОЗ ID: <span className="font-mono">{ref.esoz_referral_id}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}

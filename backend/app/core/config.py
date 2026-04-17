@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings
-from pydantic import AnyHttpUrl
-from typing import List
+from pydantic import AnyHttpUrl, field_validator
+from typing import List, Union
 
 
 class Settings(BaseSettings):
@@ -8,7 +8,14 @@ class Settings(BaseSettings):
     APP_NAME: str = "MedLink UA"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000"]
+    ALLOWED_ORIGINS: Union[List[str], str] = ["http://localhost:3000"]
+
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def parse_allowed_origins(cls, v):
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
 
     # ─── Database ────────────────────────────────
     DATABASE_URL: str

@@ -5,6 +5,7 @@ import type {
   ICD10SearchResponse,
   AppointmentTodayResponse,
   DiagnosisType,
+  ReferralResponse,
 } from './types'
 
 export const encountersApi = {
@@ -40,4 +41,15 @@ export const encountersApi = {
 
   searchICD10: (q: string, limit = 10) =>
     client.get<ICD10SearchResponse[]>('/icd10/search', { params: { q, limit } }),
+
+  createReferral: (encounterId: string, data: {
+    specialization_id?: string
+    reason?: string
+  }) => client.post<ReferralResponse>(`/encounters/${encounterId}/referrals`, {
+    ...data,
+    encounter_id: encounterId,
+  }),
+
+  getReferralsByPatient: (patientId: string) =>
+    client.get<ReferralResponse[]>(`/encounters/patients/${patientId}/referrals`),
 }

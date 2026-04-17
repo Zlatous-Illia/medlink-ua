@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 
 from app.core.config import settings
-from app.models.clinical import Encounter, Diagnosis, EncounterStatus
+from app.models.clinical import Encounter, Diagnosis, EncounterStatus, Referral, ReferralStatus
 from app.models.doctor import Doctor
 from app.models.patient import Patient
 from app.models.reference import ICD10Code
@@ -26,6 +26,7 @@ from app.schemas.encounters import (
     EncounterCreate, EncounterUpdate, EncounterResponse,
     DiagnosisCreate, DiagnosisResponse,
     AppointmentTodayResponse, ICD10SearchResponse,
+    ReferralCreate, ReferralResponse,
 )
 
 import os
@@ -319,3 +320,56 @@ class EncounterService:
         )
         codes = result.scalars().all()
         return [ICD10SearchResponse.model_validate(c) for c in codes]
+
+    # ── Referrals ────────────────────────────────────────────────────────────
+
+    async def create_referral(self, data: ReferralCreate, user: User) -> ReferralResponse:
+        from app.services.esoz_connector import esoz
+
+        doctor = await self._get_doctor_record(user)
+
+        # Validate encounter belongs to this doctor
+        enc_result = await self.db.execute(
+            select(Encounter).where(Encounter.id == data.encounter_id)
+        )
+        encounter = enc_result.scalar_one_or_none()
+        if not encounter:
+            raise HTTPException(status_code=404, detail="Encounter not found")
+        if encounter.doctor_id != doctor.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        referral = Referral(
+            encounter_id=data.encounter_id,
+            patient_id=encounter.patient_id,
+            doctor_id=doctor.id,
+            specialization_id=data.specialization_id,
+            reason=data.reason,
+            status=ReferralStatus.ACTIVE,
+        )
+        self.db.add(referral)
+        await self.db.flush()
+
+        # Sync to Mock ЕСОЗ
+        try:
+            esoz_data = await esoz.create_referral({
+                "patient_id": str(encounter.patient_id),
+                "doctor_id": str(doctor.id),
+                "reason": data.reason,
+            })
+            referral.esoz_referral_id = esoz_data.get("id")
+            print(f"[ESOZ] Referral sent → id={referral.esoz_referral_id}")
+        except Exception as exc:
+            print(f"[ESOZ] Referral sync failed: {exc}")
+
+        await self.db.commit()
+        await self.db.refresh(referral)
+        return ReferralResponse.model_validate(referral)
+
+    async def get_patient_referrals(self, patient_id: uuid.UUID) -> list[ReferralResponse]:
+        result = await self.db.execute(
+            select(Referral)
+            .where(Referral.patient_id == patient_id)
+            .order_by(Referral.created_at.desc())
+        )
+        referrals = result.scalars().all()
+        return [ReferralResponse.model_validate(r) for r in referrals]

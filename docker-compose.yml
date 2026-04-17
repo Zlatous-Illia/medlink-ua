@@ -52,6 +52,60 @@ services:
       timeout: 10s
       retries: 3
 
+  # ── Application services ──────────────────────────────────────────────────
+
+  esoz-mock:
+    build:
+      context: ./esoz-mock
+      dockerfile: Dockerfile
+    container_name: medlink_esoz_mock
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: medlink_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://medlink:medlink_secret@postgres:5432/medlink
+      DATABASE_URL_SYNC: postgresql://medlink:medlink_secret@postgres:5432/medlink
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_USE_SSL: "False"
+      ESOZ_MOCK_URL: http://esoz-mock:8080
+      ESOZ_CLIENT_ID: medlink_mis_dev
+      ESOZ_CLIENT_SECRET: mock_esoz_secret_2025
+      ALLOWED_ORIGINS: http://localhost:5173,http://localhost:80,http://frontend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      esoz-mock:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: medlink_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
 volumes:
   pgdata:
   redisdata:

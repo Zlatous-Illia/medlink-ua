@@ -14,6 +14,7 @@ from app.schemas.encounters import (
     EncounterCreate, EncounterUpdate, EncounterResponse,
     DiagnosisCreate, DiagnosisResponse,
     AppointmentTodayResponse, ICD10SearchResponse,
+    ReferralCreate, ReferralResponse,
 )
 from app.services.encounter_service import EncounterService
 
@@ -97,6 +98,28 @@ async def get_patient_encounters(
     redis: Annotated[aioredis.Redis, Depends(get_redis)],
 ):
     return await EncounterService(db, redis).get_patient_encounters(patient_id)
+
+
+@router.post("/{encounter_id}/referrals", response_model=ReferralResponse, status_code=201)
+async def create_referral(
+    encounter_id: uuid.UUID,
+    data: ReferralCreate,
+    current_user: Annotated[User, Depends(require_doctor)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    redis: Annotated[aioredis.Redis, Depends(get_redis)],
+):
+    data.encounter_id = encounter_id
+    return await EncounterService(db, redis).create_referral(data, current_user)
+
+
+@router.get("/patients/{patient_id}/referrals", response_model=list[ReferralResponse])
+async def get_patient_referrals(
+    patient_id: uuid.UUID,
+    current_user: Annotated[User, Depends(require_doctor)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    redis: Annotated[aioredis.Redis, Depends(get_redis)],
+):
+    return await EncounterService(db, redis).get_patient_referrals(patient_id)
 
 
 @icd10_router.get("/search", response_model=list[ICD10SearchResponse])

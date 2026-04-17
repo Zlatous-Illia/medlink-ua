@@ -306,6 +306,7 @@ pages/
 | Component | Status |
 |-----------|--------|
 | Docker Compose (PostgreSQL, Redis, MinIO) | ✅ Done |
+| **Dockerfiles** (`backend/`, `esoz-mock/`, `frontend/`) + full `docker-compose.yml` with all services | ✅ Done |
 | FastAPI app structure + settings | ✅ Done |
 | All SQLAlchemy ORM models (all groups) | ✅ Done |
 | Alembic migration (initial tables) | ✅ Done |
@@ -313,6 +314,7 @@ pages/
 | Mock ЕСОЗ server (oauth, persons, prescriptions, drugs, referrals) | ✅ Done |
 | **Module 2 — Patients & EMK** (CRUD, medical card, allergies, chronic diseases, documents, history) | ✅ Done |
 | **Module 3 — Encounters** (create/update/complete, diagnoses, ICD-10 search, WeasyPrint PDF, MinIO storage) | ✅ Done |
+| **Module 3 — E-Referrals** (create referral → ЕСОЗ sync, list by patient; frontend tab in PatientDetailPage) | ✅ Done |
 | **Module 4 — E-Prescription** (create+allergy check, cancel, drug search, ЕСОЗ sync via `ESOZConnector`) | ✅ Done |
 | **Module 5 — Appointments** (doctor list, slot generation, Redis optimistic lock, Celery 24h/1h reminders, schedule CRUD) | ✅ Done |
 | **Module 6 — Patient Cabinet** (profile, avatar MinIO, medical card RO, encounters, prescriptions, documents, change-password) | ✅ Done |
@@ -321,7 +323,7 @@ pages/
 | **Email service** (OTP, password reset, appointment reminders via fastapi-mail; always prints to console) | ✅ Done |
 | **Allergy check** (HTTP 409 when drug INN matches patient allergy on prescription creation) | ✅ Done |
 | ICD-10 & Drug import scripts (`scripts/import_icd10.py`, `scripts/import_drugs.py`) | ✅ Done |
-| **Frontend — React SPA** (21 pages: auth, doctor workspace, patient cabinet, admin panel) | ✅ Done |
+| **Frontend — React SPA** (21 pages + Referrals tab: auth, doctor workspace, patient cabinet, admin panel) | ✅ Done |
 | **Tests — Auth** (unit: 25 tests for AuthService; integration: 25 tests for Auth API) | ✅ Done |
 | **Tests — Patients** (unit: 22 tests for PatientService; integration: 21 tests for Patient Cabinet API) | ✅ Done |
 
@@ -339,7 +341,7 @@ npm run build  # production build → dist/
 
 **Module F1 — Auth pages** (`src/pages/auth/`): `LoginPage.tsx`, `TwoFAPage.tsx`, `ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx`
 
-**Module F2 — Doctor workspace** (`src/pages/doctor/`): `DoctorDashboard.tsx`, `PatientSearchPage.tsx`, `PatientDetailPage.tsx` (tabs: ЕМК, Прийоми, Рецепти, Документи), `NewEncounterPage.tsx` (autosave 30s, ICD-10 search, inline prescription form), `RegisterPatientPage.tsx`
+**Module F2 — Doctor workspace** (`src/pages/doctor/`): `DoctorDashboard.tsx`, `PatientSearchPage.tsx`, `PatientDetailPage.tsx` (tabs: ЕМК, Прийоми, Рецепти, **Направлення**, Документи), `NewEncounterPage.tsx` (autosave 30s, ICD-10 search, inline prescription form), `RegisterPatientPage.tsx`
 
 **Module F3 — Patient cabinet** (`src/pages/patient/`): `PatientDashboard.tsx`, `MyProfilePage.tsx` (avatar upload), `MyMedicalCardPage.tsx`, `MyEncountersPage.tsx`, `MyPrescriptionsPage.tsx` (QR codes), `MyAppointmentsPage.tsx`, `BookAppointmentPage.tsx` (doctor → date → slot), `MyDocumentsPage.tsx`
 
@@ -351,7 +353,13 @@ npm run build  # production build → dist/
 
 ### Tests — Implemented (`backend/tests/`)
 
-**Infrastructure:** `pytest.ini` (asyncio_mode=auto), `conftest.py` (FakeRedis, test engine → `medlink_test` PostgreSQL, `clean_db` autouse truncation, user/patient fixtures).
+**Infrastructure:** `pytest.ini` (`asyncio_mode=auto`, `asyncio_default_fixture_loop_scope=session`), `conftest.py` (FakeRedis, `NullPool` test engine → `medlink_test` PostgreSQL, `clean_db` autouse truncation via async, user/patient fixtures).
+
+**Windows compatibility fixes applied:**
+- `asyncio.WindowsSelectorEventLoopPolicy()` set at conftest import — avoids asyncpg ProactorEventLoop teardown crash
+- `poolclass=NullPool` on test engine — each test gets a fresh connection, no pool reuse issues
+- `db_session` fixture suppresses close errors on teardown
+- `jti: uuid4()` added to both `create_access_token` and `create_refresh_token` in `security.py` — prevents `UniqueViolationError` when two tokens are issued within the same second
 
 **Run (requires `docker compose up -d` first):**
 ```bash
@@ -362,10 +370,10 @@ pytest tests/integration/ -v           # 46 integration tests
 pytest --cov=app --cov-report=html -v  # with coverage → htmlcov/index.html
 ```
 
-**Already written (93 tests):**
+**All 93 tests pass** (verified on Windows, Python 3.11):
 
-| File | Tests | Coverage |
-|------|-------|---------|
+| File | Tests | What's covered |
+|------|-------|----------------|
 | `unit/test_auth_service.py` | 25 | register, login, lockout, OTP, refresh, logout, pwd reset |
 | `unit/test_patient_service.py` | 22 | create, search, access control, update, allergies, medical card |
 | `integration/test_auth_api.py` | 25 | full 2FA flow, refresh, logout, /me, forgot/reset password |
@@ -385,12 +393,6 @@ pytest --cov=app --cov-report=html -v  # with coverage → htmlcov/index.html
 - `test_esoz_integration.py` — prescription creation → Mock ЕСОЗ sync → `esoz_request_number` populated
 - `test_admin_api.py` — user CRUD, audit log filtering, stats endpoint
 
-#### DOCKERFILES (optional, for deployment demo)
-
-- `backend/Dockerfile` — FROM python:3.11-slim, COPY requirements.txt, RUN pip install, COPY app/, CMD uvicorn
-- `esoz-mock/Dockerfile` — same pattern
-- `frontend/Dockerfile` — FROM node:20-alpine, npm ci, npm run build, serve via nginx:alpine
-
 ### API Endpoints by Module
 
 **Module 2 — Patients:** ✅ Implemented (`api/v1/patients.py`)
@@ -407,7 +409,7 @@ POST   /api/v1/patients/{id}/documents            DOCTOR, ADMIN  (upload to MinI
 GET    /api/v1/patients/{id}/history              DOCTOR         (all encounters)
 ```
 
-**Module 3 — Encounters:** ✅ Implemented (`api/v1/encounters.py`)
+**Module 3 — Encounters + E-Referrals:** ✅ Implemented (`api/v1/encounters.py`)
 ```
 GET    /api/v1/appointments/today                     DOCTOR (today's schedule)
 POST   /api/v1/encounters                             DOCTOR
@@ -417,6 +419,8 @@ POST   /api/v1/encounters/{id}/complete               DOCTOR
 GET    /api/v1/encounters/{id}/pdf                    DOCTOR, PATIENT  (WeasyPrint → MinIO)
 POST   /api/v1/encounters/{id}/diagnoses              DOCTOR
 GET    /api/v1/encounters/patients/{id}/encounters    DOCTOR
+POST   /api/v1/encounters/{id}/referrals              DOCTOR  (+ ЕСОЗ sync → esoz_referral_id)
+GET    /api/v1/encounters/patients/{id}/referrals     DOCTOR
 GET    /api/v1/icd10/search?q=&limit=                 DOCTOR
 ```
 

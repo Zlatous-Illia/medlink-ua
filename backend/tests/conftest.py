@@ -8,8 +8,15 @@ All tables are truncated after each test for isolation.
 
 import os
 import sys
+import asyncio
 import pytest
 import pytest_asyncio
+
+# ─── Windows: switch to SelectorEventLoop so asyncpg teardown works ──────────
+# ProactorEventLoop (default on Win32) sets _proactor=None on close, which
+# causes asyncpg to raise AttributeError when flushing ROLLBACK on teardown.
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 from datetime import date
 from typing import AsyncGenerator
 
@@ -58,6 +65,7 @@ _create_test_database()
 # ─── Now safe to import app modules ───────────────────────────────────────────
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.pool import NullPool
 from httpx import AsyncClient, ASGITransport
 
 import app.models  # noqa: F401 — register all models with Base.metadata
@@ -72,7 +80,7 @@ from app.models.patient import Patient, MedicalCard, Gender
 TEST_DATABASE_URL = os.environ["DATABASE_URL"]
 TEST_DATABASE_URL_SYNC = os.environ["DATABASE_URL_SYNC"]
 
-test_engine = create_async_engine(TEST_DATABASE_URL, echo=False, pool_pre_ping=True)
+test_engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
 TestSessionFactory = async_sessionmaker(
     test_engine, class_=AsyncSession, expire_on_commit=False
 )
@@ -141,9 +149,8 @@ async def clean_db():
     """Truncate all tables after each test to ensure full isolation."""
     yield
     async with test_engine.begin() as conn:
-        # Disable FK trigger checks so we can delete in any order
         await conn.execute(text("SET session_replication_role = replica"))
-        for table in Base.metadata.sorted_tables:
+        for table in reversed(Base.metadata.sorted_tables):
             await conn.execute(table.delete())
         await conn.execute(text("SET session_replication_role = DEFAULT"))
 
@@ -152,9 +159,19 @@ async def clean_db():
 
 @pytest_asyncio.fixture
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Provide an AsyncSession for unit tests (uses test engine)."""
-    async with TestSessionFactory() as session:
+    """Provide an AsyncSession for unit tests (uses test engine).
+
+    Uses explicit close with error suppression to avoid Windows-specific
+    asyncpg teardown issues (ProactorEventLoop / asyncio loop-closed errors).
+    """
+    session = TestSessionFactory()
+    try:
         yield session
+    finally:
+        try:
+            await session.close()
+        except Exception:
+            pass
 
 
 # ─── Fake Redis fixture ───────────────────────────────────────────────────────

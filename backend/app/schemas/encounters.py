@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
-from app.models.clinical import DiagnosisType, EncounterStatus
+from app.models.clinical import DiagnosisType, EncounterStatus, ReferralStatus
 from app.models.scheduling import AppointmentStatus
 from app.schemas.patients import PatientResponse, ICD10Summary
 
@@ -67,6 +67,27 @@ class AppointmentTodayResponse(BaseModel):
     reason: Optional[str] = None
     status: AppointmentStatus
     patient: Optional[PatientResponse] = None
+
+
+class ReferralCreate(BaseModel):
+    encounter_id: uuid.UUID
+    specialization_id: Optional[uuid.UUID] = None
+    reason: Optional[str] = None
+
+
+class ReferralResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    encounter_id: uuid.UUID
+    patient_id: uuid.UUID
+    doctor_id: uuid.UUID
+    specialization_id: Optional[uuid.UUID] = None
+    reason: Optional[str] = None
+    status: ReferralStatus
+    esoz_referral_id: Optional[str] = None
+    created_at: datetime
+    expires_at: Optional[datetime] = None
 
 
 class ICD10SearchResponse(BaseModel):
