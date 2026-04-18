@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, FileText, Pill, Calendar, Stethoscope,
-  UserCircle, ClipboardList, BarChart3, ScrollText, FolderOpen, Heart,
+  UserCircle, ClipboardList, ScrollText, FolderOpen, Heart,
 } from 'lucide-react'
 import type { UserRole } from '../../api/types'
 
@@ -15,6 +15,7 @@ const PATIENT_NAV = [
   { to: '/patient/profile', icon: UserCircle, label: 'Мій профіль' },
   { to: '/patient/medical-card', icon: Heart, label: 'Медкартка' },
   { to: '/patient/encounters', icon: Stethoscope, label: 'Мої прийоми' },
+  { to: '/patient/referrals', icon: FileText, label: 'Мої направлення' },
   { to: '/patient/prescriptions', icon: Pill, label: 'Рецепти' },
   { to: '/patient/appointments', icon: Calendar, label: 'Мої записи' },
   { to: '/patient/documents', icon: FolderOpen, label: 'Документи' },
@@ -23,6 +24,7 @@ const PATIENT_NAV = [
 const ADMIN_NAV = [
   { to: '/admin', icon: LayoutDashboard, label: 'Дашборд', end: true },
   { to: '/admin/users', icon: Users, label: 'Користувачі' },
+  { to: '/admin/patients', icon: ClipboardList, label: 'Пацієнти' },
   { to: '/admin/audit-logs', icon: ScrollText, label: 'Журнал дій' },
 ]
 

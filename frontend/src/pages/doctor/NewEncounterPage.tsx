@@ -60,7 +60,9 @@ function PatientPicker({ onSelect }: { onSelect: (p: PatientResponse) => void })
                   <p className="font-medium text-gray-900 truncate">
                     {p.last_name} {p.first_name} {p.middle_name ?? ''}
                   </p>
-                  <p className="text-xs text-gray-500">{age} р. • ІПН: {p.tax_id}</p>
+                  <p className="text-xs text-gray-500">
+                    {age} р. • ІПН: {p.tax_id}{p.phone ? ` • ${p.phone}` : ''}
+                  </p>
                 </div>
               </button>
             )
@@ -94,6 +96,7 @@ export function NewEncounterPage() {
 
   const [encounterId, setEncounterId] = useState<string | null>(null)
   const [encounterStarted, setEncounterStarted] = useState(false)
+  const encounterCreatingRef = useRef(false)
   const [form, setForm] = useState({
     complaints: '',
     anamnesis: '',
@@ -123,15 +126,19 @@ export function NewEncounterPage() {
     enabled: !!patientId,
   })
 
-  // Create encounter when patient is selected and encounter not yet started
+  // Create encounter when patient is selected — ref guards against double-fire
   useEffect(() => {
-    if (!patientId || encounterStarted) return
+    if (!patientId || encounterCreatingRef.current || encounterStarted) return
+    encounterCreatingRef.current = true
     setEncounterStarted(true)
     encountersApi.create({ patient_id: patientId, appointment_id: appointmentId })
       .then(r => setEncounterId(r.data.id))
-      .catch(() => {
-        toast('error', 'Помилка створення прийому')
+      .catch((err) => {
+        const detail = err?.response?.data?.detail
+        const msg = typeof detail === 'string' ? detail : 'Помилка створення прийому'
+        toast('error', msg)
         setEncounterStarted(false)
+        encounterCreatingRef.current = false
       })
   }, [patientId])
 
@@ -190,7 +197,16 @@ export function NewEncounterPage() {
       setDrugQuery('')
       setAllergyWarning(null)
     },
-    onError: () => toast('error', 'Помилка виписки рецепту'),
+    onError: (err: any) => {
+      const detail = err?.response?.data?.detail
+      if (err?.response?.status === 409 && detail?.warning) {
+        setAllergyWarning(
+          `Увага: препарат "${detail.drug_inn}" конфліктує з алергією "${detail.allergy}" (${detail.severity})`
+        )
+      } else {
+        toast('error', typeof detail === 'string' ? detail : 'Помилка виписки рецепту')
+      }
+    },
   })
 
   const completeMutation = useMutation({

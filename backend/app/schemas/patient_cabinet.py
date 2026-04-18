@@ -6,8 +6,8 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from app.models.patient import BloodType, SmokingStatus, AlcoholStatus, AllergySeverity
-from app.models.clinical import EncounterStatus, DiagnosisType, PrescriptionStatus
+from app.models.patient import BloodType, AllergySeverity
+from app.models.clinical import EncounterStatus, DiagnosisType, PrescriptionStatus, ReferralStatus
 from app.models.user import UserRole
 
 
@@ -70,8 +70,6 @@ class MedicalCardReadResponse(BaseModel):
     blood_type: Optional[BloodType]
     height_cm: Optional[int]
     weight_kg: Optional[float]
-    smoking_status: SmokingStatus
-    alcohol_status: Optional[AlcoholStatus]
     disability_group: Optional[str]
     notes: Optional[str]
     allergies: list[AllergyReadResponse]
@@ -131,3 +129,17 @@ class MyDocumentResponse(BaseModel):
     file_url: str
     file_size: Optional[int]
     uploaded_at: datetime
+
+
+class MyReferralResponse(BaseModel):
+    id: uuid.UUID
+    encounter_id: uuid.UUID
+    patient_id: uuid.UUID
+    doctor_full_name: str
+    specialization_name: Optional[str] = None
+    reason: Optional[str]
+    status: ReferralStatus
+    esoz_referral_id: Optional[str] = None
+    created_at: datetime
+    expires_at: Optional[datetime] = None
+

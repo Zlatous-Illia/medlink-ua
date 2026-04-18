@@ -320,6 +320,33 @@ class TestGetDocuments:
         assert resp.json() == []
 
 
+# ─── GET /me/referrals ────────────────────────────────────────────────────────
+
+class TestGetReferrals:
+    async def test_referrals_empty_for_new_patient(self, async_client: AsyncClient):
+        user, _ = await _create_patient_with_profile(
+            "referrals@test.com", tax_id="1212121212"
+        )
+        token = make_token(user)
+
+        resp = await async_client.get(
+            f"{BASE}/referrals",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    async def test_doctor_cannot_access_me_referrals(self, async_client: AsyncClient):
+        doctor = await _create_doctor("doc_ref@test.com")
+        token = make_token(doctor)
+
+        resp = await async_client.get(
+            f"{BASE}/referrals",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+
 # ─── PATCH /me/change-password ───────────────────────────────────────────────
 
 class TestChangePassword:

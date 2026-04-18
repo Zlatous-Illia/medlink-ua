@@ -31,6 +31,11 @@ class UserAdminDetailResponse(UserAdminResponse):
 class UserAdminUpdate(BaseModel):
     is_active: Optional[bool] = None
     role: Optional[UserRole] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
 
 
 # ─── Audit log ────────────────────────────────────────────────────────────────

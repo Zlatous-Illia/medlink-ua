@@ -25,6 +25,10 @@ export const encountersApi = {
     recommendations?: string
   }) => client.patch<EncounterResponse>(`/encounters/${id}`, data),
 
+  cancel: (id: string) => client.post<EncounterResponse>(`/encounters/${id}/cancel`),
+
+  delete: (id: string) => client.delete<void>(`/encounters/${id}`),
+
   complete: (id: string) =>
     client.post<EncounterResponse>(`/encounters/${id}/complete`),
 
@@ -49,6 +53,17 @@ export const encountersApi = {
     ...data,
     encounter_id: encounterId,
   }),
+
+  getReferral: (referralId: string) => client.get<ReferralResponse>(`/encounters/referrals/${referralId}`),
+
+  updateReferral: (referralId: string, data: {
+    specialization_id?: string
+    reason?: string
+  }) => client.patch<ReferralResponse>(`/encounters/referrals/${referralId}`, data),
+
+  cancelReferral: (referralId: string) => client.post<ReferralResponse>(`/encounters/referrals/${referralId}/cancel`),
+
+  deleteReferral: (referralId: string) => client.delete<void>(`/encounters/referrals/${referralId}`),
 
   getReferralsByPatient: (patientId: string) =>
     client.get<ReferralResponse[]>(`/encounters/patients/${patientId}/referrals`),

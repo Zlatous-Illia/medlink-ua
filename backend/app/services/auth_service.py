@@ -15,6 +15,8 @@ from app.core.security import (
     otp_redis_key, failed_attempts_key, lockout_redis_key,
 )
 from app.models.user import User, UserRole, RefreshToken, AuditLog
+from app.models.patient import Patient, MedicalCard
+from app.models.doctor import Doctor
 from app.schemas.auth import (
     UserRegisterRequest, UserLoginRequest, OTPVerifyRequest,
     TokenResponse, LoginStep1Response, UserResponse,
@@ -52,6 +54,41 @@ class AuthService:
         )
         self.db.add(user)
         await self.db.flush()  # get user.id
+
+        # Auto-create or link Patient + MedicalCard when PATIENT registers with required fields
+        if data.role == UserRole.PATIENT and data.tax_id and data.birth_date and data.gender:
+            existing_result = await self.db.execute(
+                select(Patient).where(Patient.tax_id == data.tax_id)
+            )
+            existing_patient = existing_result.scalar_one_or_none()
+            if existing_patient is None:
+                patient = Patient(
+                    user_id=user.id,
+                    tax_id=data.tax_id,
+                    first_name=data.first_name,
+                    last_name=data.last_name,
+                    middle_name=data.middle_name,
+                    birth_date=data.birth_date,
+                    gender=data.gender,
+                    phone=data.phone,
+                    email=data.email,
+                    created_by=user.id,
+                )
+                self.db.add(patient)
+                await self.db.flush()
+                self.db.add(MedicalCard(patient_id=patient.id))
+            elif existing_patient.user_id is None:
+                # Patient was pre-created by a doctor — link to this user account
+                existing_patient.user_id = user.id
+            else:
+                raise HTTPException(
+                    status_code=409,
+                    detail="A patient with this tax_id already has a user account",
+                )
+
+        # Ensure doctor profile exists for doctor accounts.
+        if data.role == UserRole.DOCTOR:
+            self.db.add(Doctor(user_id=user.id, is_active=True))
 
         # Audit
         self.db.add(AuditLog(

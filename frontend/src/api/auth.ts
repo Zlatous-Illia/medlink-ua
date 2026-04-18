@@ -10,6 +10,9 @@ export const authApi = {
     middle_name?: string
     phone?: string
     role?: string
+    tax_id?: string
+    birth_date?: string
+    gender?: string
   }) => client.post<UserResponse>('/auth/register', data),
 
   login: (email: string, password: string) =>

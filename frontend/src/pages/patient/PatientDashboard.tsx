@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
-import { Calendar, Pill, Stethoscope, ArrowRight, UserX } from 'lucide-react'
+import { Calendar, Pill, Stethoscope, ArrowRight, UserX, FileText } from 'lucide-react'
 import { cabinetApi } from '../../api/patientCabinet'
 import { useAuthStore } from '../../store/authStore'
 import { PageLoading } from '../../components/shared/LoadingSpinner'
@@ -97,6 +97,22 @@ export function PatientDashboard() {
             className="mt-3 flex items-center gap-1 text-sm text-blue-600 hover:underline"
           >
             Всі прийоми <ArrowRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <div className="card p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
+              <FileText className="h-5 w-5 text-amber-600" />
+            </div>
+            <p className="text-sm font-medium text-gray-600">Мої направлення</p>
+          </div>
+          <p className="text-sm text-gray-500">Переглядайте активні та минулі направлення до спеціалістів</p>
+          <button
+            onClick={() => navigate('/patient/referrals')}
+            className="mt-3 flex items-center gap-1 text-sm text-blue-600 hover:underline"
+          >
+            Переглянути <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
 

@@ -1,0 +1,301 @@
+﻿Column1;Column2;Column3;Column4;Column5;Column6;Column7
+Категорія;Компонент/Екстракт;Код;Назва;Міжнародна номенклатура;Компонент;Біохімічна група
+Пилок трав;E;g17;Бахія звичайна (паспалум помітний);Paspalum notatum;;
+Пилок трав;E;g2;Бермудська трава (Цинодон пальчатий);Cynodon dactylon;;
+Пилок трав;C;g216;Бермудська трава (Цинодон пальчатий);Cynodon dactylon;rCyn d 1;BetaExpansin
+Пилок трав;E;g7;Очерет звичайний;Phragmites communis;;
+Пилок трав;C;g100;Пажитниця багаторічна;Lolium perenne;nLol p 1;BetaExpansin
+Пилок трав;E;g12;Жито посівне;Secale cereale;;
+Пилок трав;C;g205;Тимофіївка лучна;Phleum pratense;rPhl p 1;BetaExpansin
+Пилок трав;C;g206;Тимофіївка лучна;Phleum pratense;rPhl p 2;Expansin
+Пилок трав;C;g215;Тимофіївка лучна;Phleum pratense;rPhl p 5.0101;Grass Group 5/6
+Пилок трав;C;g209;Тимофіївка лучна;Phleum pratense;rPhl p 6;Grass Group 5/6
+Пилок трав;C;g210;Тимофіївка лучна;Phleum pratense;rPhl p 7;Polcalcin
+Пилок трав;C;g212;Тимофіївка лучна;Phleum pratense;rPhl p 12;Profilin
+Пилок дерев;E;t19;Акація срібляста (Рід тропічних дерев);Acacia spp.;;
+Пилок дерев;C;t100;Вільха чорна (клейка);Alnus glutinosa;rAln q 1;PR-10
+Пилок дерев;C;t101;Вільха чорна (клейка);Alnus glutinosa;rAln q 4;Polcalcin
+Пилок дерев;C;t226;Кипарис аризонський;Cupressus arizonica;nCup a 1;Pectate Lyase
+Пилок дерев;E;t25;Ясен звичайний (високий);Fraxinus excelsior;;
+Пилок дерев;C;t103;Ясен звичайний (високий);Fraxinus excelsior;rFra e 1;Ole e 1-Family
+Пилок дерев;E;t14;Тополя чорна (осокір);Populus nigra;;
+Пилок дерев;C;t300;Бук європейський;Fagus sylvatica;rFag s 1;PR-10
+Пилок дерев;E;t222;Кипарис вічнозелений;Cupressus sempervirens;;
+Пилок дерев;C;t105;Фінікова пальма;Phoenix dactylifera;nPho d 2;Profilin
+Пилок дерев;E;t8;В'яз граболистий (берест);Ulmus campestris;;
+Пилок дерев;E;t4;Ліщина звичайна (пилок);Corylus avellana;;
+Пилок дерев;C;t102;Ліщина звичайна (пилок);Corylus avellana;rCor a 1.0103;PR-10
+Пилок дерев;C;t241;Платан кленолистий;Platanus acerifolia;rPla a 1;Plant Invertase
+Пилок дерев;C;t301;Платан кленолистий;Platanus acerifolia;rPla a 2;Polygalacturonase
+Пилок дерев;C;t302;Платан кленолистий;Platanus acerifolia;rPla a 3;nsLTP
+Пилок дерев;E;t63;Ялівець мексиканський (гірський кедр);Juniperus ashei;;
+Пилок дерев;E;t71;Шовковиця червона;Morus rubra;;
+Пилок дерев;C;t224;Олива європейська;Olea europaea;nOle e 1;Common Olive Group 1
+Пилок дерев;C;t240;Олива європейська;Olea europaea;rOle e 9;1
+Пилок дерев;E;t305;Шовковиця паперова (брусонетія паперова);Broussonetia papyrifera;Bro p;
+Пилок дерев;C;t215;Береза повисла;Betula verrucosa;rBet v 1;PR-10
+Пилок дерев;C;t216;Береза повисла;Betula verrucosa;rBet v 2;Profilin
+Пилок дерев;C;t225;Береза повисла;Betula verrucosa;rBet v 6;Isoflavon Reductase
+Пилок дерев;C;t303;Криптомерія японська;Cryptomeria japonica;rCry j 1;Pectate Lyase
+Пилок дерев;E;t304;Айлант найвищий;Ailanthus altissima;;
+Пилок дерев;E;t10;Волоський горіх;Juglans regia;;
+Пилок бур'янів;C;W301;Переліска однорічна;Mercurialis annua;rMer a 1;Profilin
+Пилок бур'янів;E;w300;Коноплі звичайні (посівні);Cannabis sativa;;
+Пилок бур'янів;C;w302;Коноплі звичайні (посівні);Cannabis sativa;rCan s 3;nsLTP
+Пилок бур'янів;E;w10;Лобода біла;Chenopodium album;;
+Пилок бур'янів;C;w100;Лобода біла;Chenopodium album;rChe a 1;Ole e 1-Family
+Пилок бур'янів;E;w6;Полин звичайний;Artemisia vulgaris;;
+Пилок бур'янів;C;w231;Полин звичайний;Artemisia vulgaris;rArt v 1.0101;Plant Defensin
+Пилок бур'янів;C;w233;Полин звичайний;Artemisia vulgaris;rArt v 3.0201;nsLTP
+Пилок бур'янів;E;w20;Кропива дводомна;Urtica dioica;;
+Пилок бур'янів;E;w14;Щириця звичайна (амарант);Amaranthus retroflexus;;
+Пилок бур'янів;E;w1;Амброзія полинолиста;Ambrosia artemisiifolia;;
+Пилок бур'янів;C;w230;Амброзія полинолиста;Ambrosia artemisiifolia;rAmb a 1;Pectate Lyase
+Пилок бур'янів;C;w300;Амброзія полинолиста;Ambrosia artemisiifolia;rAmb a 4;Plant Defensin
+Пилок бур'янів;E;w9;Подорожник ланцетолистий;Plantago lanceolata;;
+Пилок бур'янів;C;w234;Подорожник ланцетолистий;Plantago lanceolata;rPla l 1;Ole e 1-Family
+Пилок бур'янів;E;w11;Курай поташевий;Salsola kali;;
+Пилок бур'янів;C;w232;Курай поташевий;Salsola kali;rSal k 1;Pectin Methylesterase
+Пилок бур'янів;E;w21;Настінниця розлога;Parietaria judaica;;
+Пилок бур'янів;C;w211;Настінниця розлога;Parietaria judaica;rPar j 2;nsLTP
+Пліснява та дріжджі;C;m229;Alternaria alternata (цвілеві гриби);Alternaria alternata;rAlt a 1;Alt a 1-Family
+Пліснява та дріжджі;C;m230;Alternaria alternata (цвілеві гриби);Alternaria alternata;rAlt a 6;Enolase
+Пліснява та дріжджі;C;m218;Aspergillus fumigatus (цвілеві гриби);Aspergillus fumigatus;rAsp f 1;Mitogillin Family
+Пліснява та дріжджі;C;m220;Aspergillus fumigatus (цвілеві гриби);Aspergillus fumigatus;rAsp f 3;Peroxysomal Protein
+Пліснява та дріжджі;C;m221;Aspergillus fumigatus (цвілеві гриби);Aspergillus fumigatus;rAsp f 4;unknown
+Пліснява та дріжджі;C;m222;Aspergillus fumigatus (цвілеві гриби);Aspergillus fumigatus;rAsp f 6;Mn Superoxid-Dismutase
+Пліснява та дріжджі;E;m2;Cladosporium herbarum (цвілеві гриби);Cladosporium herbarum;;
+Пліснява та дріжджі;C;m100;Cladosporium herbarum (цвілеві гриби);Cladosporium herbarum;rCla h 8;Short Chain Dehydrogenase
+Пліснява та дріжджі;C;y2;Malassezia sympodialis;Malassezia sympodialis;rMala s 5;unknown
+Пліснява та дріжджі;C;y3;Malassezia sympodialis;Malassezia sympodialis;rMala s 6;Cyclophilin
+Пліснява та дріжджі;C;y5;Malassezia sympodialis;Malassezia sympodialis;rMala s 11;Mn Superoxid-Dismutase
+Пліснява та дріжджі;E;m1;Penicilium chrysogenum (цвілеві гриби);Penicilium chrysogenum;;
+Кліщі та таргани;E;d70;Борошняний кліщ;Acarus siro;;
+Кліщі та таргани;E;i206;Американський тарган;Periplaneta americana;;
+Кліщі та таргани;C;i300;Американський тарган;Periplaneta americana;rPer a 7;Tropomyosin
+Кліщі та таргани;C;d300;Blomia tropicalis;Blomia tropicalis;rBlo t 5;Mite Group 5
+Кліщі та таргани;C;d301;Blomia tropicalis;Blomia tropicalis;rBlo t 10;Tropomyosin
+Кліщі та таргани;C;d302;Blomia tropicalis;Blomia tropicalis;rBlo t 21;unknown
+Кліщі та таргани;C;d100;Американський кліщ домашнього пилу (D. farinae);Dermatophagoides farinae;rDer f 1;Cysteine Protease
+Кліщі та таргани;C;d101;Американський кліщ домашнього пилу (D. farinae);Dermatophagoides farinae;rDer f 2;NPC2 Family
+Кліщі та таргани;C;d202;Європейський кліщ домашнього пилу (D. pteronyssinus);Dermatophagoides pteronyssinus;rDer p 1;Cysteine Protease
+Кліщі та таргани;C;d203;Європейський кліщ домашнього пилу (D. pteronyssinus);Dermatophagoides pteronyssinus;rDer p 2;NPC2 Family
+Кліщі та таргани;C;d103;Європейський кліщ домашнього пилу (D. pteronyssinus);Dermatophagoides pteronyssinus;rDer p 5;unknown
+Кліщі та таргани;C;d104;Європейський кліщ домашнього пилу (D. pteronyssinus);Dermatophagoides pteronyssinus;rDer p 7;Mite Group 7
+Кліщі та таргани;C;d205;Європейський кліщ домашнього пилу (D. pteronyssinus);Dermatophagoides pteronyssinus;rDer p 10;Tropomyosin
+Кліщі та таргани;C;d102;Європейський кліщ домашнього пилу (D. pteronyssinus);Dermatophagoides pteronyssinus;rDer p 11;Myosin heavy chain
+Кліщі та таргани;C;d303;Європейський кліщ домашнього пилу (D. pteronyssinus);Dermatophagoides pteronyssinus;rDer p 20;Arginine Kinase
+Кліщі та таргани;C;d304;Європейський кліщ домашнього пилу (D. pteronyssinus);Dermatophagoides pteronyssinus;rDer p 21;unknown
+Кліщі та таргани;C;d209;Європейський кліщ домашнього пилу (D. pteronyssinus);Dermatophagoides pteronyssinus;rDer p 23;Peritrophin-like protein domain
+Кліщі та таргани;C;i100;Німецький тарган;Blatella germanica;rBla g 1;Cockroach group 1
+Кліщі та таргани;C;i101;Німецький тарган;Blatella germanica;rBla g 2;Aspartyl protease
+Кліщі та таргани;C;i102;Німецький тарган;Blatella germanica;rBla g 4;Lipocalin
+Кліщі та таргани;C;i103;Німецький тарган;Blatella germanica;rBla g 5;Glutathione S-transferase
+Кліщі та таргани;C;i301;Німецький тарган;Blatella germanica;rBla g 9;Arginine Kinase
+Кліщі та таргани;C;d105;Glycyphagus domesticus;Glycyphagus domesticus;rGly d 2;NPC2 Family
+Кліщі та таргани;C;D305;Lepidoglyphus destructor;Lepidoglyphus destructor;rLep d 2;NPC2 Family
+Кліщі та таргани;E;d72;Tyrophagus putrescentiae;Tyrophagus putrescentiae;;
+Кліщі та таргани;C;D306;Tyrophagus putrescentiae;Tyrophagus putrescentiae;rTyr p 2;NPC2 Family
+Лупа і шерсть тварин;C;e94;Кіт (лупа);Felis domesticus;rFel d 1;Uteroglobin
+Лупа і шерсть тварин;C;e220;Кіт (лупа);Felis domesticus;nFel d 2;Serum Albumin
+Лупа і шерсть тварин;C;e228;Кіт (лупа);Felis domesticus;rFel d 4;Lipocalin
+Лупа і шерсть тварин;C;e300;Кіт (лупа);Felis domesticus;rFel d 7;Lipocalin
+Лупа і шерсть тварин;C;e100;Корова (лупа);Bos domesticus;rBos d 2;Lipocalin
+Лупа і шерсть тварин;C;e301;Джунгарський хом'як (лупа);Phodopus sungorus;rPhod s 1;Lipocalin
+Лупа і шерсть тварин;C;e101;Собака (лупа);Canis familiaris;rCan f 1;Lipocalin
+Лупа і шерсть тварин;C;e102;Собака (лупа);Canis familiaris;rCan f 2;Lipocalin
+Лупа і шерсть тварин;C;e221;Собака (лупа);Canis familiaris;nCan f 3;Serum Albumin
+Лупа і шерсть тварин;C;e302;Собака (лупа);Canis familiaris;rCan f 4;Lipocalin
+Лупа і шерсть тварин;E;e308;Собака (сеча кобеля вкл. Can f 5);Canis familiaris;;
+Лупа і шерсть тварин;C;e303;Собака (лупа);Canis familiaris;rCan f 6;Lipocalin
+Лупа і шерсть тварин;C;e304;Собака (лупа);Canis familiaris;rCan f Fel d 1 like;Fel d 1 like
+Лупа і шерсть тварин;E;e80;Коза (лупа);Capra hircus;;
+Лупа і шерсть тварин;C;e305;Морська свинка (лупа);Cavia porcellus;rCav p 1;Lipocalin
+Лупа і шерсть тварин;C;e227;Кінь (лупа);Equus caballus;rEqu c 1;Lipocalin
+Лупа і шерсть тварин;C;e306;Кінь (лупа);Equus caballus;nEqu c 3;Serum Albumin
+Лупа і шерсть тварин;C;e307;Кінь (лупа);Equus caballus;nEqu c 4;Latherin
+Лупа і шерсть тварин;C;e103;Миша хатня (лупа);Mus musculus;nMus m 1;Lipocalin
+Лупа і шерсть тварин;E;e83;Свиня (лупа);Sus domesticus;;
+Лупа і шерсть тварин;C;e309;Кролик (лупа);Oryctolagus cuniculus;rOry c 1;Lipocalin
+Лупа і шерсть тварин;C;e310;Кролик (лупа);Oryctolagus cuniculus;rOry c 2;Lipocalin
+Лупа і шерсть тварин;C;e311;Кролик (лупа);Oryctolagus cuniculus;rOry c 3;Secretoglobin
+Лупа і шерсть тварин;E;e73;Щур (лупа);Rattus norvegicus;;
+Лупа і шерсть тварин;E;e81;Вівця (лупа);Ovis aries;;
+Отрута комах;E;i3;Оса (отрута);Vespula vulgaris;;
+Отрута комах;C;i211;Оса (отрута);Vespula vulgaris;rVes v 1;Phospholipase A1
+Отрута комах;C;i209;Оса (отрута);Vespula vulgaris;rVes v 5;Antigen 5
+Отрута комах;E;i70;Вогняна мураха червона (отрута);Solenopsis richteri & Solenopsis invicta;;
+Отрута комах;E;i1;Медоносна бджола (отрута);Apis mellifera;;
+Отрута комах;C;i208;Медоносна бджола (отрута);Apis mellifera;r/nApi m 1;Phospholipase A2
+Отрута комах;C;i217;Медоносна бджола (отрута);Apis mellifera;rApi m 10;Icarapin Variant 2
+Отрута комах;E;i25;Шершень (отрута);Dolichovespula spp.;;
+Отрута комах;E;i4;Паперова оса (отрута);Polistes dominulus;;
+Отрута комах;C;i210;Паперова оса (отрута);Polistes dominulus;rPol d 5;Antigen 5
+Зернові культури та насіння;E;f6;Ячмінь;Hordeum vulgare;;
+Зернові культури та насіння;E;f11;Гречка звичайна;Fagopyrum esculentum;;
+Зернові культури та насіння;C;f508;Гречка звичайна;Fagopyrum esculentum;nFag e 2;2S Albumin
+Зернові культури та насіння;E;f8;Кукурудза;Zea mays;;
+Зернові культури та насіння;C;f523;Кукурудза;Zea mays;rZea m 14;nsLTP
+Зернові культури та насіння;E;f5;Жито посівне;Secale cereale;;
+Зернові культури та насіння;E;f305;Гуньба сінна (пажитник шамбала);Trigonella foenum-graecum;;
+Зернові культури та насіння;E;f55;Просо;Panicum miliaceum;;
+Зернові культури та насіння;E;f7;Овес;Avena sativa;;
+Зернові культури та насіння;E;f224;Мак (насіння);Papaver somniferum;;
+Зернові культури та насіння;C;f516;Мак (насіння);Papaver somniferum;nPap s 2S Albumin;2S Albumin
+Зернові культури та насіння;E;f226;Гарбуз (насіння);Cucurbita pepo;;
+Зернові культури та насіння;E;f347;Кіноа (насіння);Chenopodium quinoa;;
+Зернові культури та насіння;E;f9;Рис;Oryza sativa;;
+Зернові культури та насіння;E;f10;Кунжут (сезам);Sesamum indicum;;
+Зернові культури та насіння;C;f518;Кунжут (сезам);Sesamum indicum;nSes i 1;2S Albumin
+Зернові культури та насіння;E;k84;Соняшник (насіння);Helianthus annuus;;
+Зернові культури та насіння;E;f124;Спельта;Triticum spelta;;
+Зернові культури та насіння;C;f542;Пшениця;Triticum aestivum;rTri a 14;nsLTP
+Зернові культури та насіння;C;f543;Пшениця;Triticum aestivum;rTri a 19;Omega-5-Gliadin
+Зернові культури та насіння;C;f544;Пшениця;Triticum aestivum;nTri a aA_TI;AlphaAmylase TrypsinInhibitor
+Яйце і молоко;E;f1;Яєчний білок;Gallus domesticus;;
+Яйце і молоко;C;f233;Яєчний білок;Gallus domesticus;nGal d 1;Ovomucoid
+Яйце і молоко;C;f232;Яєчний білок;Gallus domesticus;nGal d 2;Ovalbumin
+Яйце і молоко;C;f323;Яєчний білок;Gallus domesticus;nGal d 3;Ovotransferrin
+Яйце і молоко;C;k208;Яєчний білок;Gallus domesticus;nGal d 4;Lysozym C
+Яйце і молоко;C;f510;Жовток;Gallus domesticus;nGal d 5;Serum Albumin
+Яйце і молоко;E;f75;Жовток;Gallus domesticus;;
+Яйце і молоко;E;f506;Молоко верблюдяче;Camelus dromedarius;;
+Яйце і молоко;E;f2;Молоко коров'яче;Bos domesticus;;
+Яйце і молоко;C;f76;Молоко коров'яче;Bos domesticus;nBos d 4;a-Lactalbumin
+Яйце і молоко;C;f77;Молоко коров'яче;Bos domesticus;nBos d 5;β-Lactoglobulin
+Яйце і молоко;C;f78;Молоко коров'яче;Bos domesticus;nBos d 8;Casein
+Яйце і молоко;E;f300;Молоко козяче;Capra hircus;;
+Яйце і молоко;E;f286;Молоко кобиляче;Equus caballus;;
+Яйце і молоко;E;f325;Молоко овече;Ovis aries;;
+Фрукти;C;f434;Яблуко;Malus domestica;rMal d 1;PR-10
+Фрукти;C;f514;Яблуко;Malus domestica;nMal d 2;TLP
+Фрукти;C;f435;Яблуко;Malus domestica;rMal d 3;nsLTP
+Фрукти;E;f96;Авокадо;Persea americana;;
+Фрукти;E;f92;Банан;Musa acuminata;;
+Фрукти;E;f288;Чорниця;Vaccinium myrtillus;;
+Фрукти;E;f242;Вишня;Prunus spp.;;
+Фрукти;E;f328;Інжир;Ficus carica;;
+Фрукти;C;f521;Виноград;Vitis vinifera;nVit v 1;nsLTP
+Фрукти;C;f500;Ківі;Actinidia deliciosa;nAct d 1;Cysteine Protease
+Фрукти;C;f503;Ківі;Actinidia deliciosa;nAct d 2;TLP
+Фрукти;C;f501;Ківі;Actinidia deliciosa;nAct d 5;Kiwellin
+Фрукти;C;f502;Ківі;Actinidia deliciosa;nAct d 10;nsLTP
+Фрукти;E;f91;Манго;Mangifera indica;;
+Фрукти;C;f528;Диня;Cucumis melo;rCuc m 2;Profilin
+Фрукти;E;f33;Апельсин;Citrus sinensis;;
+Фрукти;E;f293;Папая;Carica papaya;;
+Фрукти;C;f420;Персик;Prunus persica;n/r Pru p 3;nsLTP
+Фрукти;E;f94;Груша;Pyrus communis;;
+Фрукти;С-мікс;f44;Полуниця;Fragaria ananassa;rFra a 1 + rFra a 3;PR-10+LTP
+Бобові культури та горіхи;E;f20;Мигдаль;Prunus dulcis;;
+Бобові культури та горіхи;E;f18;Бразильський горіх;Bertholletia excelsa;;
+Бобові культури та горіхи;C;f354;Бразильський горіх;Bertholletia excelsa;nBer e 1;2S Albumin
+Бобові культури та горіхи;E;f202;Кеш'ю (горіх);Anacardium occidentale;;
+Бобові культури та горіхи;C;f550;Кеш'ю (горіх);Anacardium occidentale;rAna o 2;11S Globulin
+Бобові культури та горіхи;C;f443;Кеш'ю (горіх);Anacardium occidentale;rAna o 3;2S Albumin
+Бобові культури та горіхи;E;f309;Турецький горіх (нут);Cicer arietinus;;
+Бобові культури та горіхи;C;f428;Фундук;Corylus avellana;rCor a 1.0401;PR-10
+Бобові культури та горіхи;C;f425;Фундук;Corylus avellana;rCor a 8;nsLTP
+Бобові культури та горіхи;C;f440;Фундук;Corylus avellana;nCor a 9;11S Globulin
+Бобові культури та горіхи;C;f522;Фундук;Corylus avellana;nCor a 11;7/8S Globulin
+Бобові культури та горіхи;C;f439;Фундук;Corylus avellana;nCor a 14;2S Albumin
+Бобові культури та горіхи;E;f235;Сочевиця;Lens culinaris;;
+Бобові культури та горіхи;E;f335;Люпин (насіння);Lupinus albus;;
+Бобові культури та горіхи;E;f345;Макадамія (горіх);Macadamia integrifolia;;
+Бобові культури та горіхи;C;f513;Макадамія (горіх);Macadamia integrifolia;nMac i 2S Albumin;2S Albumin
+Бобові культури та горіхи;E;f12;Горох;Pisum sativum;;
+Бобові культури та горіхи;C;f422;Арахіс;Arachis hypogea;nAra h 1;7/8S Globulin
+Бобові культури та горіхи;C;f423;Арахіс;Arachis hypogea;rAra h 2;2S Albumin
+Бобові культури та горіхи;C;f424;Арахіс;Arachis hypogea;nAra h 3;11S Globulin
+Бобові культури та горіхи;C;f447;Арахіс;Arachis hypogea;nAra h 6;2S Albumin
+Бобові культури та горіхи;C;f352;Арахіс;Arachis hypogea;rAra h 8;PR-10
+Бобові культури та горіхи;C;f427;Арахіс;Arachis hypogea;rAra h 9;nsLTP
+Бобові культури та горіхи;C;f803;Арахіс;Arachis hypogea;rAra h 15;Oleosin
+Бобові культури та горіхи;E;f201;Пекан (горіх);Carya illinoensis;;
+Бобові культури та горіхи;C;f531;Фісташки;Pistacia vera;rPis v 1;2S Albumin
+Бобові культури та горіхи;C;f532;Фісташки;Pistacia vera;nPis v 2;11S Globulin subunit
+Бобові культури та горіхи;C;f533;Фісташки;Pistacia vera;nPis v 3;7/8S Globulin
+Бобові культури та горіхи;C;f353;Соя;Glycine max;rGly m 4;PR-10
+Бобові культури та горіхи;C;f431;Соя;Glycine max;rGly m 5;7/8S Globulin
+Бобові культури та горіхи;C;f432;Соя;Glycine max;nGly m 6;11S Globulin
+Бобові культури та горіхи;C;f511;Соя;Glycine max;nGly m 8;2S Albumin
+Бобові культури та горіхи;C;f441;Волоський горіх;Juglans regia;nJug r 1;2S Albumin
+Бобові культури та горіхи;C;f512;Волоський горіх;Juglans regia;nJug r 2;7/8S Globulin
+Бобові культури та горіхи;C;f539;Волоський горіх;Juglans regia;rJug r 3;nsLTP
+Бобові культури та горіхи;C;f540;Волоський горіх;Juglans regia;nJug r 4;11S Globulin
+Бобові культури та горіхи;C;f541;Волоський горіх;Juglans regia;nJug r 6;7/8S Globulin
+Бобові культури та горіхи;E;f315;Квасоля біла;Phaseolus vulgaris;;
+Морепродукти;C;p10;Анізакіс;Anisakis simplex;rAni s 1;Kunitz Serin Protease Inhibitor
+Морепродукти;C;p11;Анізакіс;Anisakis simplex;rAni s 3;Tropomyosin
+Морепродукти;E;f3;Атлантична тріска;Gadus morhua;;
+Морепродукти;C;f509;Атлантична тріска;Gadus morhua;nGad m 1;β-Parvalbumin
+Морепродукти;С-мікс;f805;Атлантична тріска;Gadus morhua;nGad m 2&3;βEnolase & Aldolase
+Морепродукти;E;f205;Оселедець атлантичний;Clupea harengus;;
+Морепродукти;C;f525;Оселедець атлантичний;Clupea harengus;rClu h 1;β-Parvalbumin
+Морепродукти;E;f206;Скумбрія атлантична;Scomber scombrus;;
+Морепродукти;C;f551;Скумбрія атлантична;Scomber scombrus;rSco s 1;β-Parvalbumin
+Морепродукти;C;f517;Чорна тигрова креветка;Penaeus monodon;nPen m 1;Tropomyosin
+Морепродукти;C;f545;Чорна тигрова креветка;Penaeus monodon;rPen m 2;Arginine Kinase
+Морепродукти;C;f552;Чорна тигрова креветка;Penaeus monodon;rPen m 3;Myosin light chain
+Морепродукти;C;f524;Чорна тигрова креветка;Penaeus monodon;rPen m 4;Sarcoplasmic Calcium Binding Protein
+Морепродукти;C;f529;Креветка піщана;Crangon crangon;rCra c 6;Troponin C
+Морепродукти;C;f355;Карп;Cyprinus carpio;rCyp c 1;β-Parvalbumin
+Морепродукти;E;f37;Мідія їстівна;Mytilus edulis;;
+Морепродукти;E;f23;Краб;Chionoecetes spp.;;
+Морепродукти;E;f80;Лобстер;Homarus gammarus;;
+Морепродукти;E;f515;Північна креветка;Pandalus borealis;;
+Морепродукти;E;f290;Устриці;Ostrea edulis;;
+Морепродукти;E;f41;Лосось атлантичний (сьомга);Salmo salar;;
+Морепродукти;C;f534;Лосось атлантичний (сьомга);Salmo salar;rSal s 1;β-Parvalbumin
+Морепродукти;E;f338;Морські гребінці;Pecten spp.;;
+Морепродукти;E;f24;Креветки мікс;Litopaenaeus setiferus, Farfantepenaeus aztecus, Farfantepenaeus dourarum;;
+Морепродукти;E;f258;Кальмар;Loligo spp.;;
+Морепродукти;C;f537;Риба меч;Xiphias gladius;rXip g 1;β-Parvalbumin
+Морепродукти;E;f535;Морська лисиця (Плахур звичайний);Raja clavata;;
+Морепродукти;C;f536;Морська лисиця (Плахур звичайний);Raja clavata;rRaj c Parvalbumin;α-Parvalbumin
+Морепродукти;E;f40;Тунець;Thunnus albacares;;
+Морепродукти;C;f538;Тунець;Thunnus albacares;Thu a 1;β-Parvalbumin
+Морепродукти;E;f207;Молюск їстівний;Ruditapes spp.;;
+Спеції;E;f271;Аніс;Pimpinella anisum;;
+Спеції;E;f265;Кмин;Carum carvi;;
+Спеції;E;f89;Гірчиця;Brassica / Sinapis spp.;;
+Спеції;C;f519;Гірчиця;Brassica / Sinapis spp.;nSin a 1;2S Albumin
+Спеції;E;f283;Материнка звичайна (Орегано);Origanum vulgare;;
+Спеції;E;f218;Паприка;Capsicum annuum;;
+Спеції;E;f86;Петрушка;Petroselinum crispum;;
+М'ясо;E;f27;Яловичина;Bos domesticus;;
+М'ясо;C;e204;Яловичина;Bos domesticus;nBos d 6;Serum Albumin
+М'ясо;E;f83;Курятина;Gallus domesticus;;
+М'ясо;E;f321;Конина;Equus caballus;;
+М'ясо;E;f88;Ягнятина;Ovis aries;;
+М'ясо;E;f527;Хрущак борошняний (їстівний);Tenebrio molitor;;
+М'ясо;E;f553;Сарана перелітна (їстівна);Locusta migratoria;;
+М'ясо;E;f26;Свинина;Sus domesticus;;
+М'ясо;C;f530;Свинина;Sus domesticus;rSus d 1;Serum Albumin
+М'ясо;E;f213;Кролятина;Oryctolagus spp.;;
+М'ясо;E;f284;Індичатина;Meleagris gallopavo;;
+Овочі;E;f31;Морква;Daucus carota;;
+Овочі;C;f507;Морква;Daucus carota;rDau c 1;PR-10
+Овочі;C;f417;Селера;Apium graveolens;rApi g 1;PR-10
+Овочі;C;f504;Селера;Apium graveolens;rApi g 2;nsLTP
+Овочі;C;f505;Селера;Apium graveolens;rApi g 6;nsLTP
+Овочі;E;f47;Часник;Allium sativum;;
+Овочі;E;f48;Цибуля;Allium cepa;;
+Овочі;E;f35;Картопля;Solanum tuberosum;;
+Овочі;E;f25;Помідор;Solanum lycopersicum;;
+Овочі;C;f520;Помідор;Solanum lycopersicum;nSola l 6;nsLTP
+Інше;E;f45;Пекарські дріжджі;Saccharomyces cerevisiae;;
+Інше;C;o214;Лактоферин;;rHom s LF;CCD
+Інше;C;k215;Латекс;Hevea brasiliensis;rHev b 1;Rubber elongation factor
+Інше;C;k217;Латекс;Hevea brasiliensis;rHev b 3;Small rubber particle protein
+Інше;C;k218;Латекс;Hevea brasiliensis;rHev b 5;unknown
+Інше;C;k220;Латекс;Hevea brasiliensis;rHev b 6.02;ProHevein
+Інше;C;k221;Латекс;Hevea brasiliensis;rHev b 8;Profilin
+Інше;C;k224;Латекс;Hevea brasiliensis;rHev b 11;Class 1 Chitinase
+Інше;C;o100;Argas reflexus;Argas reflexus;rArg r 1;Lipocalin
+Інше;E;k81;Фікус Бенджаміна;Ficus benjamina;;
+Використовують лише у дослідженнях;C;RUO-e800;Хом'як золотистий;Mesocricetus auratus;rMes a 1;Lipocalin
+Використовують лише у дослідженнях;C;RUO-f800;Фундук;Corylus avellana;rCor a 12;Oleosin
+Використовують лише у дослідженнях;C;RUO-t227;Олива європейська;Olea europaea;rOle e 7;nsLTP
+Використовують лише у дослідженнях;C;RUO-f801;Персик;Prunus persica;rPru p 7;Gibberellin regulated protein
+Використовують лише у дослідженнях;C;RUO-f804;Фісташка;Pistacia vera;rPis v 4;Mn Superoxid-Dismutase

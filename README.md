@@ -84,7 +84,7 @@ medlink-ua/
 │   │   ├── schemas/                 # Pydantic v2 схеми (8 файлів)
 │   │   ├── services/                # Бізнес-логіка (10 сервісів)
 │   │   └── workers/                 # Celery задачі (нагадування)
-│   ├── scripts/                     # import_icd10.py, import_drugs.py
+│   ├── scripts/                     # import_icd10.py, import_drugs.py, import_allergens.py
 │   ├── templates/                   # encounter_pdf.html (WeasyPrint)
 │   ├── tests/                       # 93 тести (unit + integration)
 │   └── alembic/                     # Міграції БД
@@ -112,12 +112,15 @@ medlink-ua/
 | **Модуль 4** | Е-рецепт + перевірка алергій (HTTP 409) + Mock ЕСОЗ синхронізація | ✅ Done |
 | **Модуль 5** | Онлайн-запис + Redis lock + Celery нагадування | ✅ Done |
 | **Модуль 6** | Кабінет пацієнта (профіль, аватар, ЕМК ro, записи) | ✅ Done |
-| **Модуль 7** | Адмін-панель (юзери, audit log) + Аналітика (5 метрик) | ✅ Done |
+| **Модуль 7** | Адмін-панель (юзери, список пацієнтів, audit log) + Аналітика (5 метрик) | ✅ Done |
 | **Email** | OTP + скидання пароля + нагадування (fastapi-mail; консоль + SMTP) | ✅ Done |
-| **Frontend** | React SPA — 21 сторінка + вкладка Направлення (лікар, пацієнт, адмін, auth) | ✅ Done |
+| **Frontend** | React SPA — 23 сторінки (лікар, пацієнт, адмін, auth) | ✅ Done |
+| **Редагування алергій/хвороб** | Inline edit/delete для алергій та хронічних захворювань у картці пацієнта | ✅ Done |
+| **Довідник алергенів** | Таблиця `allergens` + пошук `/allergens/search` + автодоповнення в формі алергії | ✅ Done |
+| **Документи** | GET + DELETE документів пацієнта (фронт: список з розміром, датою, видаленням) | ✅ Done |
 | **Dockerfiles** | `backend/Dockerfile`, `esoz-mock/Dockerfile`, `frontend/Dockerfile` (multi-stage nginx) | ✅ Done |
 | **docker-compose.yml** | Повний стек одною командою: інфраструктура + backend + esoz-mock + frontend | ✅ Done |
-| **Тести** | 93 тести: AuthService, PatientService, Auth API, Patient Cabinet API | ✅ Done |
+| **Тести** | 104 тести: AuthService, PatientService, Auth API, Patient Cabinet API, **Admin capabilities** | ✅ Done |
 
 ### Що ще не реалізовано
 | Компонент | Пріоритет | Деталі |
@@ -189,7 +192,9 @@ SMTP_PASSWORD=your_password
 **ADMIN** (`/admin/*`):
 - `/admin` — Дашборд: статистика + 4 Recharts графіки (аналітика)
 - `/admin/users` — Таблиця користувачів (фільтри, пагінація)
-- `/admin/users/:id` — Деталі юзера + деактивація + зміна ролі
+- `/admin/users/:id` — Деталі юзера + редагування профілю + деактивація + видалення (SUPER_ADMIN)
+- `/admin/patients` — Список всіх пацієнтів з пошуком
+- `/admin/patients/:id` — Карта пацієнта (перегляд, доступні вкладки за роллю)
 - `/admin/audit-logs` — Журнал дій (фільтри: юзер, дія, дата)
 
 **Auth** (публічні):
@@ -198,25 +203,54 @@ SMTP_PASSWORD=your_password
 
 ---
 
+## Авторизація та ролі
+
+### Чотири ролі в системі
+| Роль | Доступ | Описання |
+|------|--------|---------|
+| **PATIENT** | Власний кабінет, запис до лікаря | Пацієнт |
+| **DOCTOR** | Пацієнти, ЕМК, прийоми, рецепти, направлення | Лікар |
+| **ADMIN** | **Всі можливості DOCTOR** + управління користувачами | Адміністратор |
+| **SUPER_ADMIN** | **Всі можливості ADMIN** + видалення користувачів | Супер-адміністратор |
+
+**Важливо:** Адміністратор **не потребує профілю лікаря** (`doctors` table). Адмін має повний доступ до всіх операцій, що доступні лікарям:
+- Просмотр медичних карт пацієнтів
+- Додавання алергій і хронічних захворювань
+- Видалення та редагування прийомів і направлень
+- Створення рецептів з перевіркою алергій
+- Ти й інше
+
+---
+
 ## Тести
 
 **Вимога:** Docker Desktop запущений (`docker compose up -d`).
 Тести використовують окрему базу даних `medlink_test` (створюється автоматично).
 
-> **Статус: 93/93 тестів проходять** (перевірено на Windows, Python 3.11)
+> **Статус: 104/104 тестів проходять** (перевірено на Windows, Python 3.11)
 
 ```
 backend/tests/
 ├── conftest.py                      # FakeRedis, NullPool test engine (medlink_test), clean_db, user fixtures
 ├── unit/
 │   ├── test_auth_service.py         # 25 тестів: register, login, OTP, lockout, tokens, password reset
-│   └── test_patient_service.py      # 22 тести: CRUD, пошук, access control, алергії, медкарта
+│   ├── test_patient_service.py      # 22 тести: CRUD, пошук, access control, алергії, медкарта
+│   ├── test_admin_service.py        # 1 тест: оновлення ролі користувача до DOCTOR (створює профіль лікаря)
+│   └── test_encounter_service.py    # 2 тести: скасування та видалення прийомів, направлень
 └── integration/
     ├── test_auth_api.py             # 25 тестів: повний 2FA flow, refresh, logout, /me, reset password
-    └── test_patient_cabinet_api.py  # 21 тест: GET/PATCH /me, медкарта, прийоми, рецепти, change-password
+    ├── test_patient_cabinet_api.py  # 21 тест: GET/PATCH /me, медкарта, прийоми, рецепти, change-password
+    └── test_admin_capabilities.py   # 5 тестів: адмін може робити все, що робить лікар (без профілю doctors)
 ```
 
-Разом: **93 тести** (47 unit + 46 integration).
+Разом: **104 тести** (50 unit + 54 integration).
+
+**Нові тести в `test_admin_capabilities.py`:**
+- ✅ Admin може переглядати медичну карту пацієнта
+- ✅ Admin може додавати алергії
+- ✅ Admin може видаляти прийоми
+- ✅ Admin може створювати рецепти
+- ✅ **SUPER_ADMIN** отримує всі ті ж можливості
 
 **Конфігурація (`pytest.ini`):** `asyncio_mode = auto`, `asyncio_default_fixture_loop_scope = session`
 
@@ -427,4 +461,19 @@ python scripts/import_icd10.py icd10.csv
 
 # Препарати (CSV: atc_code,inn,trade_name,form,dosage,manufacturer)
 python scripts/import_drugs.py drugs.csv
+
+# Алергени (CSV: Категорія;Компонент;Код;Назва;Міжнародна номенклатура — роздільник ;)
+python scripts/import_allergens.py scripts/alex2_allergens.csv
 ```
+
+## 🩺 Backfill профілів лікарів
+Якщо в БД є користувачі з `role=DOCTOR`, але без запису в таблиці `doctors`, виконайте:
+
+```bash
+# Перевірка без змін
+python scripts/backfill_doctors.py --dry-run --verbose
+
+# Створення відсутніх профілів
+python scripts/backfill_doctors.py
+```
+

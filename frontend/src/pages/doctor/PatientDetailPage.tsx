@@ -10,8 +10,10 @@ import { StatusBadge } from '../../components/shared/StatusBadge'
 import { PageLoading } from '../../components/shared/LoadingSpinner'
 import { EmptyState } from '../../components/shared/EmptyState'
 import { toast } from '../../components/shared/Toast'
+import { Trash2 } from 'lucide-react'
 import type {
-  BloodType, SmokingStatus, AlcoholStatus, AllergySeverity, DiagnosisType, ICD10SearchResponse,
+  BloodType, AllergySeverity, ICD10SearchResponse, AllergenResponse,
+  EncounterResponse, ReferralResponse,
 } from '../../api/types'
 
 const TABS = ['ЕМК', 'Прийоми', 'Рецепти', 'Направлення', 'Документи'] as const
@@ -25,27 +27,11 @@ const SEVERITY_COLORS = {
 const SEVERITY_LABELS = { MILD: 'Легка', MODERATE: 'Помірна', SEVERE: 'Важка' }
 
 const BLOOD_TYPES: BloodType[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'UNKNOWN']
-const SMOKING_OPTIONS: { value: SmokingStatus; label: string }[] = [
-  { value: 'NEVER', label: 'Не курить' },
-  { value: 'FORMER', label: 'Колишній курець' },
-  { value: 'CURRENT', label: 'Курить' },
-  { value: 'UNKNOWN', label: 'Невідомо' },
-]
-const ALCOHOL_OPTIONS: { value: AlcoholStatus; label: string }[] = [
-  { value: 'NEVER', label: 'Не вживає' },
-  { value: 'FORMER', label: 'Колишній вживач' },
-  { value: 'CURRENT', label: 'Вживає' },
-  { value: 'UNKNOWN', label: 'Невідомо' },
-]
+const GENDER_LABELS: Record<string, string> = { MALE: 'Чоловік', FEMALE: 'Жінка', OTHER: 'Інше' }
 const SEVERITY_OPTIONS: { value: AllergySeverity; label: string }[] = [
   { value: 'MILD', label: 'Легка' },
   { value: 'MODERATE', label: 'Помірна' },
   { value: 'SEVERE', label: 'Важка' },
-]
-const DIAGNOSIS_TYPES: { value: DiagnosisType; label: string }[] = [
-  { value: 'MAIN', label: 'Основний' },
-  { value: 'COMPLICATION', label: 'Ускладнення' },
-  { value: 'CONCOMITANT', label: 'Супутній' },
 ]
 
 function calcBMI(height?: number, weight?: number): string {
@@ -66,11 +52,31 @@ export function PatientDetailPage() {
     blood_type: BloodType | ''
     height_cm: string
     weight_kg: string
-    smoking_status: SmokingStatus | ''
-    alcohol_status: AlcoholStatus | ''
     disability_group: string
     notes: string
-  }>({ blood_type: '', height_cm: '', weight_kg: '', smoking_status: '', alcohol_status: '', disability_group: '', notes: '' })
+  }>({ blood_type: '', height_cm: '', weight_kg: '', disability_group: '', notes: '' })
+
+  // Allergy editing
+  const [editingAllergyId, setEditingAllergyId] = useState<string | null>(null)
+  const [editAllergyForm, setEditAllergyForm] = useState({ substance: '', severity: 'MILD' as AllergySeverity, reaction: '' })
+
+  // Allergen autocomplete
+  const [allergenQuery, setAllergenQuery] = useState('')
+  const [allergenResults, setAllergenResults] = useState<AllergenResponse[]>([])
+
+  // Chronic disease editing
+  const [editingDiseaseId, setEditingDiseaseId] = useState<string | null>(null)
+  const [editDiseaseForm, setEditDiseaseForm] = useState({ diagnosed_at: '', notes: '' })
+
+  // Encounter editing
+  const [editingEncounterId, setEditingEncounterId] = useState<string | null>(null)
+  const [editEncounterForm, setEditEncounterForm] = useState({
+    complaints: '',
+    anamnesis: '',
+    objective_exam: '',
+    treatment_plan: '',
+    recommendations: '',
+  })
 
   // Add allergy modal
   const [showAllergyForm, setShowAllergyForm] = useState(false)
@@ -115,6 +121,8 @@ export function PatientDetailPage() {
   // Add referral form
   const [showReferralForm, setShowReferralForm] = useState(false)
   const [referralForm, setReferralForm] = useState({ encounter_id: '', reason: '' })
+  const [editingReferralId, setEditingReferralId] = useState<string | null>(null)
+  const [editReferralForm, setEditReferralForm] = useState({ reason: '' })
   const { data: patientEncounters } = useQuery({
     queryKey: ['encounters-for-referral', id],
     queryFn: () => encountersApi.getByPatient(id!).then(r => r.data),
@@ -134,13 +142,124 @@ export function PatientDetailPage() {
     onError: () => toast('error', 'Помилка створення направлення'),
   })
 
+  const updateReferralMutation = useMutation({
+    mutationFn: ({ referralId, data }: { referralId: string; data: { reason: string } }) =>
+      encountersApi.updateReferral(referralId, { reason: data.reason || undefined }),
+    onSuccess: () => {
+      toast('success', 'Направлення оновлено')
+      setEditingReferralId(null)
+      qc.invalidateQueries({ queryKey: ['referrals', id] })
+    },
+    onError: () => toast('error', 'Помилка оновлення направлення'),
+  })
+
+  const cancelReferralMutation = useMutation({
+    mutationFn: (referralId: string) => encountersApi.cancelReferral(referralId),
+    onSuccess: () => {
+      toast('success', 'Направлення скасовано')
+      qc.invalidateQueries({ queryKey: ['referrals', id] })
+    },
+    onError: () => toast('error', 'Помилка скасування направлення'),
+  })
+
+  const deleteReferralMutation = useMutation({
+    mutationFn: (referralId: string) => encountersApi.deleteReferral(referralId),
+    onSuccess: () => {
+      toast('success', 'Направлення видалено')
+      qc.invalidateQueries({ queryKey: ['referrals', id] })
+    },
+    onError: () => toast('error', 'Помилка видалення направлення'),
+  })
+
+  const { data: documents, refetch: refetchDocuments } = useQuery({
+    queryKey: ['documents', id],
+    queryFn: () => patientsApi.getDocuments(id!).then(r => r.data),
+    enabled: !!id && tab === 'Документи',
+  })
+
   const uploadMutation = useMutation({
     mutationFn: (file: File) => patientsApi.uploadDocument(id!, file),
     onSuccess: () => {
       toast('success', 'Документ завантажено')
-      qc.invalidateQueries({ queryKey: ['patient', id] })
+      refetchDocuments()
     },
     onError: () => toast('error', 'Помилка завантаження'),
+  })
+
+  const deleteDocumentMutation = useMutation({
+    mutationFn: (docId: string) => patientsApi.deleteDocument(id!, docId),
+    onSuccess: () => {
+      toast('success', 'Документ видалено')
+      refetchDocuments()
+    },
+    onError: () => toast('error', 'Помилка видалення'),
+  })
+
+  const deleteAllergyMutation = useMutation({
+    mutationFn: (allergyId: string) => patientsApi.deleteAllergy(id!, allergyId),
+    onSuccess: () => { toast('success', 'Алергію видалено'); refetchCard() },
+    onError: () => toast('error', 'Помилка видалення'),
+  })
+
+  const updateAllergyMutation = useMutation({
+    mutationFn: ({ allergyId, data }: { allergyId: string; data: typeof editAllergyForm }) =>
+      patientsApi.updateAllergy(id!, allergyId, data),
+    onSuccess: () => {
+      toast('success', 'Алергію оновлено')
+      setEditingAllergyId(null)
+      refetchCard()
+    },
+    onError: () => toast('error', 'Помилка оновлення'),
+  })
+
+  const deleteDiseaseMutation = useMutation({
+    mutationFn: (diseaseId: string) => patientsApi.deleteChronicDisease(id!, diseaseId),
+    onSuccess: () => { toast('success', 'Захворювання видалено'); refetchCard() },
+    onError: () => toast('error', 'Помилка видалення'),
+  })
+
+  const updateDiseaseMutation = useMutation({
+    mutationFn: ({ diseaseId, data }: { diseaseId: string; data: typeof editDiseaseForm }) =>
+      patientsApi.updateChronicDisease(id!, diseaseId, {
+        diagnosed_at: data.diagnosed_at || undefined,
+        notes: data.notes || undefined,
+      }),
+    onSuccess: () => {
+      toast('success', 'Захворювання оновлено')
+      setEditingDiseaseId(null)
+      refetchCard()
+    },
+    onError: () => toast('error', 'Помилка оновлення'),
+  })
+
+  const updateEncounterMutation = useMutation({
+    mutationFn: ({ encounterId, data }: { encounterId: string; data: typeof editEncounterForm }) =>
+      encountersApi.update(encounterId, data),
+    onSuccess: () => {
+      toast('success', 'Прийом оновлено')
+      setEditingEncounterId(null)
+      qc.invalidateQueries({ queryKey: ['encounters', id] })
+    },
+    onError: () => toast('error', 'Помилка оновлення прийому'),
+  })
+
+  const cancelEncounterMutation = useMutation({
+    mutationFn: (encounterId: string) => encountersApi.cancel(encounterId),
+    onSuccess: () => {
+      toast('success', 'Прийом скасовано')
+      qc.invalidateQueries({ queryKey: ['encounters', id] })
+    },
+    onError: () => toast('error', 'Помилка скасування прийому'),
+  })
+
+  const deleteEncounterMutation = useMutation({
+    mutationFn: (encounterId: string) => encountersApi.delete(encounterId),
+    onSuccess: () => {
+      toast('success', 'Прийом видалено')
+      qc.invalidateQueries({ queryKey: ['encounters', id] })
+      qc.invalidateQueries({ queryKey: ['referrals', id] })
+    },
+    onError: () => toast('error', 'Помилка видалення прийому'),
   })
 
   const updateCardMutation = useMutation({
@@ -148,8 +267,6 @@ export function PatientDetailPage() {
       blood_type: cardForm.blood_type as BloodType || undefined,
       height_cm: cardForm.height_cm ? parseInt(cardForm.height_cm) : undefined,
       weight_kg: cardForm.weight_kg ? parseFloat(cardForm.weight_kg) : undefined,
-      smoking_status: cardForm.smoking_status as SmokingStatus || undefined,
-      alcohol_status: cardForm.alcohol_status as AlcoholStatus || undefined,
       disability_group: cardForm.disability_group || undefined,
       notes: cardForm.notes || undefined,
     }),
@@ -198,12 +315,36 @@ export function PatientDetailPage() {
       blood_type: medCard?.blood_type ?? '',
       height_cm: medCard?.height_cm?.toString() ?? '',
       weight_kg: medCard?.weight_kg?.toString() ?? '',
-      smoking_status: medCard?.smoking_status ?? '',
-      alcohol_status: medCard?.alcohol_status ?? '',
       disability_group: medCard?.disability_group ?? '',
       notes: medCard?.notes ?? '',
     })
     setEditingCard(true)
+  }
+
+  function openEditEncounter(enc: EncounterResponse) {
+    setEditEncounterForm({
+      complaints: enc.complaints ?? '',
+      anamnesis: enc.anamnesis ?? '',
+      objective_exam: enc.objective_exam ?? '',
+      treatment_plan: enc.treatment_plan ?? '',
+      recommendations: enc.recommendations ?? '',
+    })
+    setEditingEncounterId(enc.id)
+  }
+
+  function openEditReferral(ref: ReferralResponse) {
+    setEditingReferralId(ref.id)
+    setEditReferralForm({ reason: ref.reason ?? '' })
+  }
+
+  async function searchAllergens(q: string) {
+    setAllergenQuery(q)
+    setAllergyForm(f => ({ ...f, substance: q }))
+    if (q.length < 2) { setAllergenResults([]); return }
+    try {
+      const r = await patientsApi.searchAllergens(q)
+      setAllergenResults(r.data)
+    } catch { /* ignore */ }
   }
 
   async function searchICD10(q: string) {
@@ -298,22 +439,6 @@ export function PatientDetailPage() {
                       onChange={e => setCardForm(f => ({ ...f, weight_kg: e.target.value }))} />
                   </div>
                   <div>
-                    <label className="label">Тютюнопаління</label>
-                    <select className="input" value={cardForm.smoking_status}
-                      onChange={e => setCardForm(f => ({ ...f, smoking_status: e.target.value as SmokingStatus }))}>
-                      <option value="">— не вказано —</option>
-                      {SMOKING_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label">Алкоголь</label>
-                    <select className="input" value={cardForm.alcohol_status}
-                      onChange={e => setCardForm(f => ({ ...f, alcohol_status: e.target.value as AlcoholStatus }))}>
-                      <option value="">— не вказано —</option>
-                      {ALCOHOL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
                     <label className="label">Група інвалідності</label>
                     <input type="text" className="input" placeholder="I, II, III або немає"
                       value={cardForm.disability_group}
@@ -340,12 +465,12 @@ export function PatientDetailPage() {
               <>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   {[
+                    ['Вік', `${age} р.`],
+                    ['Стать', GENDER_LABELS[patient.gender] ?? patient.gender],
                     ['Група крові', medCard?.blood_type ?? '—'],
                     ['Зріст', medCard?.height_cm ? `${medCard.height_cm} см` : '—'],
                     ['Вага', medCard?.weight_kg ? `${medCard.weight_kg} кг` : '—'],
                     ['ІМТ', calcBMI(medCard?.height_cm, medCard?.weight_kg)],
-                    ['Тютюнопаління', SMOKING_OPTIONS.find(o => o.value === medCard?.smoking_status)?.label ?? '—'],
-                    ['Алкоголь', ALCOHOL_OPTIONS.find(o => o.value === medCard?.alcohol_status)?.label ?? '—'],
                     ['Група інвалідності', medCard?.disability_group || '—'],
                   ].map(([label, val]) => (
                     <div key={label}>
@@ -378,9 +503,27 @@ export function PatientDetailPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="label">Речовина / алерген</label>
-                    <input type="text" className="input" placeholder="Пеніцилін, пилок, горіхи…"
-                      value={allergyForm.substance}
-                      onChange={e => setAllergyForm(f => ({ ...f, substance: e.target.value }))} />
+                    <div className="relative">
+                      <input type="text" className="input" placeholder="Пошук алергену або введіть вручну…"
+                        value={allergenQuery}
+                        onChange={e => searchAllergens(e.target.value)} />
+                      {allergenResults.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg max-h-40 overflow-y-auto">
+                          {allergenResults.map(a => (
+                            <button key={a.id}
+                              className="w-full text-left px-3 py-2 hover:bg-orange-50 text-sm"
+                              onClick={() => {
+                                setAllergyForm(f => ({ ...f, substance: a.name_ua }))
+                                setAllergenQuery(a.name_ua)
+                                setAllergenResults([])
+                              }}>
+                              <span className="font-medium">{a.name_ua}</span>
+                              {a.category && <span className="text-gray-400 ml-2 text-xs">{a.category}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label className="label">Ступінь тяжкості</label>
@@ -402,7 +545,8 @@ export function PatientDetailPage() {
                     className="btn-primary btn-sm btn">
                     Зберегти
                   </button>
-                  <button onClick={() => setShowAllergyForm(false)} className="btn-secondary btn-sm btn">
+                  <button onClick={() => { setShowAllergyForm(false); setAllergenQuery(''); setAllergenResults([]) }}
+                    className="btn-secondary btn-sm btn">
                     Скасувати
                   </button>
                 </div>
@@ -412,14 +556,53 @@ export function PatientDetailPage() {
             {!medCard?.allergies?.length ? (
               <p className="text-sm text-gray-400">Алергій не зазначено</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
+              <div className="space-y-2">
                 {medCard.allergies.map(a => (
-                  <div key={a.id} className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5">
-                    <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />
-                    <span className="text-sm font-medium">{a.substance}</span>
-                    <span className={`badge text-xs ${SEVERITY_COLORS[a.severity]}`}>
-                      {SEVERITY_LABELS[a.severity]}
-                    </span>
+                  <div key={a.id}>
+                    {editingAllergyId === a.id ? (
+                      <div className="p-3 bg-orange-50 rounded-lg border border-orange-100 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <input type="text" className="input" value={editAllergyForm.substance}
+                            onChange={e => setEditAllergyForm(f => ({ ...f, substance: e.target.value }))} />
+                          <select className="input" value={editAllergyForm.severity}
+                            onChange={e => setEditAllergyForm(f => ({ ...f, severity: e.target.value as AllergySeverity }))}>
+                            {SEVERITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </select>
+                        </div>
+                        <input type="text" className="input" placeholder="Реакція…" value={editAllergyForm.reaction}
+                          onChange={e => setEditAllergyForm(f => ({ ...f, reaction: e.target.value }))} />
+                        <div className="flex gap-2">
+                          <button className="btn-primary btn-sm btn"
+                            disabled={updateAllergyMutation.isPending}
+                            onClick={() => updateAllergyMutation.mutate({ allergyId: a.id, data: editAllergyForm })}>
+                            Зберегти
+                          </button>
+                          <button className="btn-secondary btn-sm btn" onClick={() => setEditingAllergyId(null)}>
+                            Скасувати
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 group">
+                        <AlertTriangle className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                        <span className="text-sm font-medium flex-1">{a.substance}</span>
+                        <span className={`badge text-xs ${SEVERITY_COLORS[a.severity]}`}>
+                          {SEVERITY_LABELS[a.severity]}
+                        </span>
+                        <button className="opacity-0 group-hover:opacity-100 p-1 hover:text-blue-600 transition-opacity"
+                          onClick={() => {
+                            setEditingAllergyId(a.id)
+                            setEditAllergyForm({ substance: a.substance, severity: a.severity, reaction: a.reaction ?? '' })
+                          }}>
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-600 transition-opacity"
+                          onClick={() => deleteAllergyMutation.mutate(a.id)}
+                          disabled={deleteAllergyMutation.isPending}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -504,15 +687,59 @@ export function PatientDetailPage() {
             ) : (
               <div className="space-y-2">
                 {medCard.chronic_diseases.map(d => (
-                  <div key={d.id} className="flex items-center gap-3 text-sm">
-                    <span className="badge bg-blue-100 text-blue-700 font-mono">
-                      {d.icd10?.code}
-                    </span>
-                    <span className="text-gray-700">{d.icd10?.name_ua}</span>
-                    {d.diagnosed_at && (
-                      <span className="text-gray-400 text-xs ml-auto">
-                        з {format(new Date(d.diagnosed_at), 'dd.MM.yyyy')}
-                      </span>
+                  <div key={d.id}>
+                    {editingDiseaseId === d.id ? (
+                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="label text-xs">Дата діагнозу</label>
+                            <input type="date" className="input" value={editDiseaseForm.diagnosed_at}
+                              onChange={e => setEditDiseaseForm(f => ({ ...f, diagnosed_at: e.target.value }))} />
+                          </div>
+                          <div>
+                            <label className="label text-xs">Примітки</label>
+                            <input type="text" className="input" placeholder="Стадія, форма…" value={editDiseaseForm.notes}
+                              onChange={e => setEditDiseaseForm(f => ({ ...f, notes: e.target.value }))} />
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button className="btn-primary btn-sm btn"
+                            disabled={updateDiseaseMutation.isPending}
+                            onClick={() => updateDiseaseMutation.mutate({ diseaseId: d.id, data: editDiseaseForm })}>
+                            Зберегти
+                          </button>
+                          <button className="btn-secondary btn-sm btn" onClick={() => setEditingDiseaseId(null)}>
+                            Скасувати
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3 text-sm rounded-lg border border-gray-200 px-3 py-2 group">
+                        <span className="badge bg-blue-100 text-blue-700 font-mono shrink-0">
+                          {d.icd10?.code}
+                        </span>
+                        <span className="text-gray-700 flex-1">{d.icd10?.name_ua}</span>
+                        {d.diagnosed_at && (
+                          <span className="text-gray-400 text-xs">
+                            з {format(new Date(d.diagnosed_at), 'dd.MM.yyyy')}
+                          </span>
+                        )}
+                        <button className="opacity-0 group-hover:opacity-100 p-1 hover:text-blue-600 transition-opacity"
+                          onClick={() => {
+                            setEditingDiseaseId(d.id)
+                            setEditDiseaseForm({
+                              diagnosed_at: d.diagnosed_at ? d.diagnosed_at.slice(0, 10) : '',
+                              notes: d.notes ?? '',
+                            })
+                          }}>
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-600 transition-opacity"
+                          onClick={() => deleteDiseaseMutation.mutate(d.id)}
+                          disabled={deleteDiseaseMutation.isPending}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -537,23 +764,84 @@ export function PatientDetailPage() {
                       {format(new Date(enc.started_at), 'dd.MM.yyyy HH:mm')}
                     </span>
                   </div>
-                  {enc.pdf_url && (
-                    <a href={enc.pdf_url} target="_blank" rel="noreferrer" className="btn-secondary btn-sm btn">
-                      PDF
-                    </a>
-                  )}
-                </div>
-                {enc.complaints && (
-                  <p className="text-sm text-gray-700">{enc.complaints}</p>
-                )}
-                {enc.diagnoses.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {enc.diagnoses.map(d => (
-                      <span key={d.id} className="badge bg-gray-100 text-gray-600 font-mono text-xs">
-                        {d.icd10?.code ?? d.icd10_id.slice(0, 8)}
-                      </span>
-                    ))}
+                  <div className="flex items-center gap-2">
+                    {enc.pdf_url && (
+                      <a href={enc.pdf_url} target="_blank" rel="noreferrer" className="btn-secondary btn-sm btn">
+                        PDF
+                      </a>
+                    )}
+                    <button
+                      className="btn-secondary btn-sm btn"
+                      onClick={() => openEditEncounter(enc)}
+                      disabled={enc.status !== 'IN_PROGRESS'}
+                    >
+                      <Edit2 className="h-3.5 w-3.5" />
+                      Редагувати
+                    </button>
+                    <button
+                      className="btn-secondary btn-sm btn"
+                      onClick={() => cancelEncounterMutation.mutate(enc.id)}
+                      disabled={enc.status !== 'IN_PROGRESS' || cancelEncounterMutation.isPending}
+                    >
+                      Скасувати
+                    </button>
+                    <button
+                      className="btn-secondary btn-sm btn text-red-600 hover:text-red-700"
+                      onClick={() => deleteEncounterMutation.mutate(enc.id)}
+                      disabled={deleteEncounterMutation.isPending}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Видалити
+                    </button>
                   </div>
+                </div>
+                {editingEncounterId === enc.id ? (
+                  <div className="space-y-3 mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    {([
+                      ['complaints', 'Скарги'],
+                      ['anamnesis', 'Анамнез захворювання'],
+                      ['objective_exam', 'Об\'єктивний огляд'],
+                      ['treatment_plan', 'План лікування'],
+                      ['recommendations', 'Рекомендації'],
+                    ] as [keyof typeof editEncounterForm, string][]).map(([key, label]) => (
+                      <div key={key}>
+                        <label className="label text-xs">{label}</label>
+                        <textarea
+                          rows={2}
+                          className="input resize-none"
+                          value={editEncounterForm[key]}
+                          onChange={e => setEditEncounterForm(f => ({ ...f, [key]: e.target.value }))}
+                        />
+                      </div>
+                    ))}
+                    <div className="flex gap-2">
+                      <button
+                        className="btn-primary btn-sm btn"
+                        disabled={updateEncounterMutation.isPending}
+                        onClick={() => updateEncounterMutation.mutate({ encounterId: enc.id, data: editEncounterForm })}
+                      >
+                        Зберегти
+                      </button>
+                      <button className="btn-secondary btn-sm btn" onClick={() => setEditingEncounterId(null)}>
+                        Скасувати
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {enc.complaints && (
+                      <p className="text-sm text-gray-700">{enc.complaints}</p>
+                    )}
+                    {enc.diagnoses.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {enc.diagnoses.map(d => (
+                          <span key={d.id} className="badge bg-gray-100 text-gray-600 font-mono text-xs">
+                            {d.icd10?.code ?? d.icd10_id.slice(0, 8)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ))
@@ -647,16 +935,70 @@ export function PatientDetailPage() {
                 <div key={ref.id} className="card p-4">
                   <div className="flex items-center justify-between mb-2">
                     <StatusBadge value={ref.status} />
-                    <span className="text-xs text-gray-400">
-                      {format(new Date(ref.created_at), 'dd.MM.yyyy HH:mm')}
-                    </span>
-                  </div>
-                  {ref.reason && <p className="text-sm text-gray-700 mb-2">{ref.reason}</p>}
-                  {ref.esoz_referral_id && (
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      ЕСОЗ ID: <span className="font-mono">{ref.esoz_referral_id}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400">
+                        {format(new Date(ref.created_at), 'dd.MM.yyyy HH:mm')}
+                      </span>
+                      <button
+                        className="btn-secondary btn-sm btn"
+                        onClick={() => openEditReferral(ref)}
+                        disabled={ref.status !== 'ACTIVE'}
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                        Редагувати
+                      </button>
+                      <button
+                        className="btn-secondary btn-sm btn"
+                        onClick={() => cancelReferralMutation.mutate(ref.id)}
+                        disabled={ref.status !== 'ACTIVE' || cancelReferralMutation.isPending}
+                      >
+                        Скасувати
+                      </button>
+                      <button
+                        className="btn-secondary btn-sm btn text-red-600 hover:text-red-700"
+                        onClick={() => deleteReferralMutation.mutate(ref.id)}
+                        disabled={deleteReferralMutation.isPending}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Видалити
+                      </button>
                     </div>
+                  </div>
+                  {editingReferralId === ref.id ? (
+                    <div className="space-y-3 mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                      <div>
+                        <label className="label text-xs">Причина направлення</label>
+                        <textarea
+                          rows={3}
+                          className="input resize-none"
+                          placeholder="Причина, скарги, мета консультації…"
+                          value={editReferralForm.reason}
+                          onChange={e => setEditReferralForm(f => ({ ...f, reason: e.target.value }))}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          className="btn-primary btn-sm btn"
+                          disabled={updateReferralMutation.isPending}
+                          onClick={() => updateReferralMutation.mutate({ referralId: ref.id, data: editReferralForm })}
+                        >
+                          Зберегти
+                        </button>
+                        <button className="btn-secondary btn-sm btn" onClick={() => setEditingReferralId(null)}>
+                          Скасувати
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {ref.reason && <p className="text-sm text-gray-700 mb-2">{ref.reason}</p>}
+                      {ref.esoz_referral_id && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          ЕСОЗ ID: <span className="font-mono">{ref.esoz_referral_id}</span>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ))}
@@ -672,7 +1014,7 @@ export function PatientDetailPage() {
             <label className="flex items-center gap-3 cursor-pointer">
               <div className="btn-secondary btn">
                 <Upload className="h-4 w-4" />
-                Завантажити документ
+                {uploadMutation.isPending ? 'Завантаження…' : 'Завантажити документ'}
               </div>
               <input
                 type="file"
@@ -686,6 +1028,52 @@ export function PatientDetailPage() {
               <span className="text-sm text-gray-500">PDF, JPG, PNG до 10 МБ</span>
             </label>
           </div>
+
+          {!documents?.length ? (
+            <div className="card p-4"><EmptyState message="Документів не знайдено" /></div>
+          ) : (
+            <div className="card overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50">
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">Назва файлу</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">Тип</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">Розмір</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">Дата</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {documents.map(doc => (
+                    <tr key={doc.id} className="border-b border-gray-50 hover:bg-gray-50 group">
+                      <td className="px-4 py-3">
+                        <a href={doc.file_url} target="_blank" rel="noreferrer"
+                          className="text-blue-600 hover:underline flex items-center gap-1.5">
+                          <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                          {doc.file_name}
+                        </a>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 uppercase text-xs">{doc.file_type ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {doc.file_size ? `${(doc.file_size / 1024).toFixed(0)} КБ` : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {format(new Date(doc.created_at), 'dd.MM.yyyy')}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-600 transition-opacity"
+                          onClick={() => deleteDocumentMutation.mutate(doc.id)}
+                          disabled={deleteDocumentMutation.isPending}>
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

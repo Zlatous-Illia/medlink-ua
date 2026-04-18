@@ -75,6 +75,11 @@ class ReferralCreate(BaseModel):
     reason: Optional[str] = None
 
 
+class ReferralUpdate(BaseModel):
+    specialization_id: Optional[uuid.UUID] = None
+    reason: Optional[str] = None
+
+
 class ReferralResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

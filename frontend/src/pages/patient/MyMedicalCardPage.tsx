@@ -18,10 +18,6 @@ const BLOOD_TYPE_LABELS: Record<string, string> = {
   UNKNOWN: 'Невідома',
 }
 
-const HABITS_LABELS: Record<string, string> = {
-  NEVER: 'Ні', FORMER: 'Колишній', CURRENT: 'Так', UNKNOWN: '—',
-}
-
 function calcBMI(height?: number, weight?: number): string {
   if (!height || !weight) return '—'
   const bmi = weight / ((height / 100) ** 2)
@@ -72,18 +68,10 @@ export function MyMedicalCardPage() {
         </div>
       </div>
 
-      {/* Habits & disability */}
+      {/* Disability */}
       <div className="card p-5">
-        <h3 className="font-semibold text-gray-900 mb-4">Спосіб життя та соціальний стан</h3>
+        <h3 className="font-semibold text-gray-900 mb-4">Соціальний стан</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-          <div>
-            <p className="text-gray-500 mb-1">Тютюнопаління</p>
-            <p className="font-semibold text-gray-900">{HABITS_LABELS[card.smoking_status ?? 'UNKNOWN']}</p>
-          </div>
-          <div>
-            <p className="text-gray-500 mb-1">Вживання алкоголю</p>
-            <p className="font-semibold text-gray-900">{HABITS_LABELS[card.alcohol_status ?? 'UNKNOWN']}</p>
-          </div>
           <div>
             <p className="text-gray-500 mb-1">Група інвалідності</p>
             <p className="font-semibold text-gray-900">{card.disability_group || '—'}</p>

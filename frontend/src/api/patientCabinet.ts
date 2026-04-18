@@ -5,6 +5,7 @@ import type {
   MyEncounterResponse,
   MyPrescriptionResponse,
   MyDocumentResponse,
+  MyReferralResponse,
   PrescriptionStatus,
 } from './types'
 
@@ -36,6 +37,8 @@ export const cabinetApi = {
     }),
 
   getDocuments: () => client.get<MyDocumentResponse[]>('/me/documents'),
+
+  getReferrals: () => client.get<MyReferralResponse[]>('/me/referrals'),
 
   changePassword: (current_password: string, new_password: string) =>
     client.patch('/me/change-password', { current_password, new_password }),

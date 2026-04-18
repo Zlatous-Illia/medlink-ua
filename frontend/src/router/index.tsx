@@ -7,6 +7,7 @@ import { LoginPage } from '../pages/auth/LoginPage'
 import { TwoFAPage } from '../pages/auth/TwoFAPage'
 import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage'
 import { ResetPasswordPage } from '../pages/auth/ResetPasswordPage'
+import { RegisterPage } from '../pages/auth/RegisterPage'
 
 import { DoctorDashboard } from '../pages/doctor/DoctorDashboard'
 import { PatientSearchPage } from '../pages/doctor/PatientSearchPage'
@@ -18,6 +19,7 @@ import { PatientDashboard } from '../pages/patient/PatientDashboard'
 import { MyProfilePage } from '../pages/patient/MyProfilePage'
 import { MyMedicalCardPage } from '../pages/patient/MyMedicalCardPage'
 import { MyEncountersPage } from '../pages/patient/MyEncountersPage'
+import { MyReferralsPage } from '../pages/patient/MyReferralsPage'
 import { MyPrescriptionsPage } from '../pages/patient/MyPrescriptionsPage'
 import { MyAppointmentsPage } from '../pages/patient/MyAppointmentsPage'
 import { BookAppointmentPage } from '../pages/patient/BookAppointmentPage'
@@ -27,6 +29,7 @@ import { AdminDashboard } from '../pages/admin/AdminDashboard'
 import { UsersListPage } from '../pages/admin/UsersListPage'
 import { UserDetailPage } from '../pages/admin/UserDetailPage'
 import { AuditLogPage } from '../pages/admin/AuditLogPage'
+import { AdminPatientsPage } from '../pages/admin/AdminPatientsPage'
 
 import { AppShell } from '../components/layout/AppShell'
 
@@ -57,6 +60,7 @@ function WithShell({ children }: { children: React.ReactNode }) {
 export const router = createBrowserRouter([
   { path: '/', element: <RoleRedirect /> },
   { path: '/login', element: <LoginPage /> },
+  { path: '/register', element: <RegisterPage /> },
   { path: '/login/2fa', element: <TwoFAPage /> },
   { path: '/forgot-password', element: <ForgotPasswordPage /> },
   { path: '/reset-password', element: <ResetPasswordPage /> },
@@ -81,6 +85,7 @@ export const router = createBrowserRouter([
       { path: '/patient/profile', element: <WithShell><MyProfilePage /></WithShell> },
       { path: '/patient/medical-card', element: <WithShell><MyMedicalCardPage /></WithShell> },
       { path: '/patient/encounters', element: <WithShell><MyEncountersPage /></WithShell> },
+      { path: '/patient/referrals', element: <WithShell><MyReferralsPage /></WithShell> },
       { path: '/patient/prescriptions', element: <WithShell><MyPrescriptionsPage /></WithShell> },
       { path: '/patient/appointments', element: <WithShell><MyAppointmentsPage /></WithShell> },
       { path: '/patient/appointments/book', element: <WithShell><BookAppointmentPage /></WithShell> },
@@ -95,6 +100,8 @@ export const router = createBrowserRouter([
       { path: '/admin', element: <WithShell><AdminDashboard /></WithShell> },
       { path: '/admin/users', element: <WithShell><UsersListPage /></WithShell> },
       { path: '/admin/users/:id', element: <WithShell><UserDetailPage /></WithShell> },
+      { path: '/admin/patients', element: <WithShell><AdminPatientsPage /></WithShell> },
+      { path: '/admin/patients/:id', element: <WithShell><PatientDetailPage /></WithShell> },
       { path: '/admin/audit-logs', element: <WithShell><AuditLogPage /></WithShell> },
     ],
   },

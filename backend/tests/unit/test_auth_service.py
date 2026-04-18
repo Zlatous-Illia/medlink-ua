@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User, UserRole, RefreshToken
+from app.models.doctor import Doctor
 from app.core.security import hash_password, verify_password
 from app.schemas.auth import (
     UserRegisterRequest, UserLoginRequest, OTPVerifyRequest,
@@ -106,6 +107,11 @@ class TestRegister:
         )
         result = await svc.register(req)
         assert result.role == UserRole.DOCTOR
+
+        doctor_profile = (await db_session.execute(
+            select(Doctor).where(Doctor.user_id == result.id)
+        )).scalar_one_or_none()
+        assert doctor_profile is not None
 
 
 # ─── Login Step 1 ─────────────────────────────────────────────────────────────

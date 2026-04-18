@@ -45,3 +45,15 @@ class Specialization(Base):
     name_en: Mapped[str | None] = mapped_column(String(150))
     code: Mapped[str | None] = mapped_column(String(20), unique=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Allergen(Base):
+    __tablename__ = "allergens"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False, index=True)
+    name_ua: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    category: Mapped[str | None] = mapped_column(String(100))
+    international_name: Mapped[str | None] = mapped_column(String(255))
+    component: Mapped[str | None] = mapped_column(String(255))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)

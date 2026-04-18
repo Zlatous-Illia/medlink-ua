@@ -6,12 +6,13 @@ from typing import Optional
 
 import redis.asyncio as aioredis
 from fastapi import HTTPException
-from sqlalchemy import select, update, func, and_
+from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.clinical import Encounter, Prescription, PrescriptionStatus
 from app.models.patient import Patient
 from app.models.scheduling import Appointment, AppointmentStatus
+from app.models.doctor import Doctor
 from app.models.user import User, UserRole, RefreshToken, AuditLog
 from app.schemas.admin import (
     UserAdminResponse,
@@ -32,6 +33,18 @@ class AdminService:
     def __init__(self, db: AsyncSession, redis: aioredis.Redis):
         self.db = db
         self.redis = redis
+
+    # ── Create user ───────────────────────────────────────────────────────────
+
+    async def create_user(self, data, created_by: User) -> UserAdminDetailResponse:
+        from app.services.auth_service import AuthService
+        if data.role == UserRole.SUPER_ADMIN and created_by.role != UserRole.SUPER_ADMIN:
+            raise HTTPException(
+                status_code=403,
+                detail="Тільки SUPER_ADMIN може створювати іншого SUPER_ADMIN",
+            )
+        response = await AuthService(self.db, self.redis).register(data)
+        return await self.get_user(response.id)
 
     # ── List users ────────────────────────────────────────────────────────────
 
@@ -90,13 +103,14 @@ class AdminService:
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # Guard: only SUPER_ADMIN can change role of SUPER_ADMIN
-        if data.role is not None:
-            if user.role == UserRole.SUPER_ADMIN and current_user.role != UserRole.SUPER_ADMIN:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Тільки SUPER_ADMIN може змінювати роль іншого SUPER_ADMIN",
-                )
+        previous_role = user.role
+
+        # Guard: only SUPER_ADMIN can apply any changes to another SUPER_ADMIN
+        if user.role == UserRole.SUPER_ADMIN and current_user.role != UserRole.SUPER_ADMIN:
+            raise HTTPException(
+                status_code=403,
+                detail="Тільки SUPER_ADMIN може змінювати іншого SUPER_ADMIN",
+            )
 
         changes: dict = {}
         if data.is_active is not None:
@@ -115,6 +129,21 @@ class AdminService:
             changes["role"] = data.role.value
             user.role = data.role
 
+            # Guarantee doctors table consistency when role becomes DOCTOR.
+            if previous_role != UserRole.DOCTOR and data.role == UserRole.DOCTOR:
+                doctor_result = await self.db.execute(
+                    select(Doctor).where(Doctor.user_id == user.id)
+                )
+                doctor = doctor_result.scalar_one_or_none()
+                if not doctor:
+                    self.db.add(Doctor(user_id=user.id, is_active=True))
+
+        for field in ("first_name", "last_name", "middle_name", "phone", "email"):
+            value = getattr(data, field, None)
+            if value is not None:
+                changes[field] = value
+                setattr(user, field, value)
+
         if changes:
             self.db.add(AuditLog(
                 user_id=current_user.id,
@@ -127,6 +156,21 @@ class AdminService:
             await self.db.refresh(user)
 
         return await self.get_user(user_id)
+
+    # ── Delete user ───────────────────────────────────────────────────────────
+
+    async def delete_user(
+        self, user_id: uuid.UUID, current_user: User
+    ) -> None:
+        user = await self.db.get(User, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        if user.role == UserRole.SUPER_ADMIN:
+            raise HTTPException(status_code=403, detail="Cannot delete SUPER_ADMIN")
+        if user.id == current_user.id:
+            raise HTTPException(status_code=400, detail="Cannot delete yourself")
+        await self.db.delete(user)
+        await self.db.commit()
 
     # ── Deactivate user ───────────────────────────────────────────────────────
 

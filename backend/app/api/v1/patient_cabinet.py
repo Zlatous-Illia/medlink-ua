@@ -16,6 +16,7 @@ from app.schemas.patient_cabinet import (
     MyEncounterResponse,
     MyPrescriptionResponse,
     MyDocumentResponse,
+    MyReferralResponse,
     ChangePasswordRequest,
 )
 from app.services.patient_cabinet_service import PatientCabinetService
@@ -96,6 +97,16 @@ async def get_documents(
 ):
     """Список завантажених документів пацієнта."""
     return await PatientCabinetService(db, redis).get_documents(current_user)
+
+
+@router.get("/referrals", response_model=list[MyReferralResponse])
+async def get_referrals(
+    current_user: Annotated[User, Depends(_patient_only)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    redis: Annotated[aioredis.Redis, Depends(get_redis)],
+):
+    """Список власних направлень пацієнта."""
+    return await PatientCabinetService(db, redis).get_referrals(current_user)
 
 
 @router.patch("/change-password")

@@ -6,7 +6,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models.patient import Gender, BloodType, SmokingStatus, AlcoholStatus, AllergySeverity
+from app.models.patient import Gender, BloodType, AllergySeverity
 
 
 # ─── Patient ─────────────────────────────────────────────────────────────────
@@ -23,6 +23,7 @@ class PatientCreate(BaseModel):
     email: Optional[str] = None
     address: Optional[dict] = None
     primary_doctor_id: Optional[uuid.UUID] = None
+    user_email: Optional[str] = None  # link to existing User account
 
 
 class PatientUpdate(BaseModel):
@@ -42,6 +43,7 @@ class PatientResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    user_id: Optional[uuid.UUID] = None
     tax_id: str
     unzr: Optional[str] = None
     first_name: str
@@ -66,6 +68,12 @@ class AllergyCreate(BaseModel):
     reaction: Optional[str] = None
 
 
+class AllergyUpdate(BaseModel):
+    substance: Optional[str] = None
+    severity: Optional[AllergySeverity] = None
+    reaction: Optional[str] = None
+
+
 class AllergyResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -81,6 +89,11 @@ class AllergyResponse(BaseModel):
 
 class ChronicDiseaseCreate(BaseModel):
     icd10_id: uuid.UUID
+    diagnosed_at: Optional[date] = None
+    notes: Optional[str] = None
+
+
+class ChronicDiseaseUpdate(BaseModel):
     diagnosed_at: Optional[date] = None
     notes: Optional[str] = None
 
@@ -111,8 +124,6 @@ class MedicalCardUpdate(BaseModel):
     blood_type: Optional[BloodType] = None
     height_cm: Optional[int] = None
     weight_kg: Optional[float] = None
-    smoking_status: Optional[SmokingStatus] = None
-    alcohol_status: Optional[AlcoholStatus] = None
     disability_group: Optional[str] = None
     notes: Optional[str] = None
 
@@ -125,8 +136,6 @@ class MedicalCardResponse(BaseModel):
     blood_type: Optional[BloodType] = None
     height_cm: Optional[int] = None
     weight_kg: Optional[float] = None
-    smoking_status: Optional[SmokingStatus] = None
-    alcohol_status: Optional[AlcoholStatus] = None
     disability_group: Optional[str] = None
     notes: Optional[str] = None
     allergies: list[AllergyResponse] = []
@@ -168,3 +177,15 @@ class EncounterSummary(BaseModel):
     completed_at: Optional[datetime] = None
     complaints: Optional[str] = None
     diagnoses: list[DiagnosisSummary] = []
+
+
+# ─── Allergen (reference table) ───────────────────────────────────────────────
+
+class AllergenResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    code: str
+    name_ua: str
+    category: Optional[str] = None
+    international_name: Optional[str] = None

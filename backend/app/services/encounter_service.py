@@ -4,19 +4,19 @@ import asyncio
 import functools
 import io
 import uuid
-from datetime import datetime, timezone, date, timedelta
+from datetime import datetime, timezone, date
 from typing import Optional
 
 import redis.asyncio as aioredis
 from fastapi import HTTPException
 from jinja2 import Environment, FileSystemLoader
 from minio import Minio
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 
 from app.core.config import settings
-from app.models.clinical import Encounter, Diagnosis, EncounterStatus, Referral, ReferralStatus
+from app.models.clinical import Encounter, Diagnosis, Prescription, EncounterStatus, Referral, ReferralStatus
 from app.models.doctor import Doctor
 from app.models.patient import Patient
 from app.models.reference import ICD10Code
@@ -26,7 +26,7 @@ from app.schemas.encounters import (
     EncounterCreate, EncounterUpdate, EncounterResponse,
     DiagnosisCreate, DiagnosisResponse,
     AppointmentTodayResponse, ICD10SearchResponse,
-    ReferralCreate, ReferralResponse,
+    ReferralCreate, ReferralResponse, ReferralUpdate,
 )
 
 import os
@@ -57,16 +57,27 @@ class EncounterService:
         self.db = db
         self.redis = redis
 
-    async def _get_doctor_record(self, user: User) -> Doctor:
+    @staticmethod
+    def _is_admin(user: User) -> bool:
+        return user.role in (UserRole.ADMIN, UserRole.SUPER_ADMIN)
+
+    async def _get_doctor_record(self, user: User, *, require_for_admin: bool = True) -> Optional[Doctor]:
         result = await self.db.execute(
             select(Doctor).where(Doctor.user_id == user.id)
         )
         doctor = result.scalar_one_or_none()
+        if doctor:
+            return doctor
+
+        if self._is_admin(user) and not require_for_admin:
+            # Admin/SuperAdmin can manage doctor resources without personal Doctor profile.
+            return None
+
         if not doctor:
             raise HTTPException(status_code=404, detail="Doctor profile not found")
         return doctor
 
-    async def _load_encounter(self, encounter_id: uuid.UUID, doctor: Doctor) -> Encounter:
+    async def _load_encounter(self, encounter_id: uuid.UUID, user: User, doctor: Optional[Doctor]) -> Encounter:
         result = await self.db.execute(
             select(Encounter)
             .where(Encounter.id == encounter_id)
@@ -75,7 +86,7 @@ class EncounterService:
         encounter = result.scalar_one_or_none()
         if not encounter:
             raise HTTPException(status_code=404, detail="Encounter not found")
-        if encounter.doctor_id != doctor.id:
+        if not self._is_admin(user) and (doctor is None or encounter.doctor_id != doctor.id):
             raise HTTPException(status_code=403, detail="Access denied")
         return encounter
 
@@ -105,7 +116,8 @@ class EncounterService:
         return [AppointmentTodayResponse.model_validate(a) for a in appointments]
 
     async def create_encounter(self, data: EncounterCreate, doctor_user: User) -> EncounterResponse:
-        doctor = await self._get_doctor_record(doctor_user)
+        doctor = await self._get_doctor_record(doctor_user, require_for_admin=False)
+        is_admin = self._is_admin(doctor_user)
 
         appointment = None
         if data.appointment_id:
@@ -115,12 +127,22 @@ class EncounterService:
             appointment = apt_result.scalar_one_or_none()
             if not appointment:
                 raise HTTPException(status_code=404, detail="Appointment not found")
-            if appointment.doctor_id != doctor.id:
+            if not is_admin and (doctor is None or appointment.doctor_id != doctor.id):
                 raise HTTPException(status_code=403, detail="Appointment does not belong to this doctor")
+
+        if appointment:
+            encounter_doctor_id = appointment.doctor_id
+        elif doctor is not None:
+            encounter_doctor_id = doctor.id
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Admin must provide appointment_id to create encounter",
+            )
 
         encounter = Encounter(
             patient_id=data.patient_id,
-            doctor_id=doctor.id,
+            doctor_id=encounter_doctor_id,
             appointment_id=data.appointment_id,
             status=EncounterStatus.IN_PROGRESS,
         )
@@ -155,13 +177,13 @@ class EncounterService:
         )
 
     async def get_encounter(self, encounter_id: uuid.UUID, doctor_user: User) -> EncounterResponse:
-        doctor = await self._get_doctor_record(doctor_user)
-        encounter = await self._load_encounter(encounter_id, doctor)
+        doctor = await self._get_doctor_record(doctor_user, require_for_admin=False)
+        encounter = await self._load_encounter(encounter_id, doctor_user, doctor)
         return EncounterResponse.model_validate(encounter)
 
     async def update_encounter(self, encounter_id: uuid.UUID, data: EncounterUpdate, doctor_user: User) -> EncounterResponse:
-        doctor = await self._get_doctor_record(doctor_user)
-        encounter = await self._load_encounter(encounter_id, doctor)
+        doctor = await self._get_doctor_record(doctor_user, require_for_admin=False)
+        encounter = await self._load_encounter(encounter_id, doctor_user, doctor)
         if encounter.status != EncounterStatus.IN_PROGRESS:
             raise HTTPException(status_code=400, detail="Encounter already completed")
         for field, value in data.model_dump(exclude_unset=True).items():
@@ -177,9 +199,45 @@ class EncounterService:
         encounter = result.scalar_one()
         return EncounterResponse.model_validate(encounter)
 
+    async def cancel_encounter(self, encounter_id: uuid.UUID, doctor_user: User) -> EncounterResponse:
+        doctor = await self._get_doctor_record(doctor_user, require_for_admin=False)
+        encounter = await self._load_encounter(encounter_id, doctor_user, doctor)
+        if encounter.status != EncounterStatus.IN_PROGRESS:
+            raise HTTPException(status_code=400, detail="Encounter already completed or cancelled")
+
+        encounter.status = EncounterStatus.CANCELLED
+        self.db.add(AuditLog(
+            user_id=doctor_user.id, action="CANCEL_ENCOUNTER",
+            resource="encounters", resource_id=encounter.id,
+        ))
+        await self.db.commit()
+        await self.db.refresh(encounter)
+        result = await self.db.execute(
+            select(Encounter)
+            .where(Encounter.id == encounter_id)
+            .options(selectinload(Encounter.diagnoses).selectinload(Diagnosis.icd10))
+        )
+        encounter = result.scalar_one()
+        return EncounterResponse.model_validate(encounter)
+
+    async def delete_encounter(self, encounter_id: uuid.UUID, doctor_user: User) -> None:
+        doctor = await self._get_doctor_record(doctor_user, require_for_admin=False)
+        encounter = await self._load_encounter(encounter_id, doctor_user, doctor)
+
+        # Remove dependent rows first because prescriptions/referrals don't cascade.
+        await self.db.execute(delete(Diagnosis).where(Diagnosis.encounter_id == encounter.id))
+        await self.db.execute(delete(Prescription).where(Prescription.encounter_id == encounter.id))
+        await self.db.execute(delete(Referral).where(Referral.encounter_id == encounter.id))
+        await self.db.delete(encounter)
+        self.db.add(AuditLog(
+            user_id=doctor_user.id, action="DELETE_ENCOUNTER",
+            resource="encounters", resource_id=encounter.id,
+        ))
+        await self.db.commit()
+
     async def complete_encounter(self, encounter_id: uuid.UUID, doctor_user: User) -> EncounterResponse:
-        doctor = await self._get_doctor_record(doctor_user)
-        encounter = await self._load_encounter(encounter_id, doctor)
+        doctor = await self._get_doctor_record(doctor_user, require_for_admin=False)
+        encounter = await self._load_encounter(encounter_id, doctor_user, doctor)
         if encounter.status != EncounterStatus.IN_PROGRESS:
             raise HTTPException(status_code=400, detail="Encounter already completed")
         encounter.status = EncounterStatus.COMPLETED
@@ -282,8 +340,8 @@ class EncounterService:
         return [EncounterResponse.model_validate(e) for e in encounters]
 
     async def add_diagnosis(self, encounter_id: uuid.UUID, data: DiagnosisCreate, doctor_user: User) -> DiagnosisResponse:
-        doctor = await self._get_doctor_record(doctor_user)
-        encounter = await self._load_encounter(encounter_id, doctor)
+        doctor = await self._get_doctor_record(doctor_user, require_for_admin=False)
+        encounter = await self._load_encounter(encounter_id, doctor_user, doctor)
         if encounter.status != EncounterStatus.IN_PROGRESS:
             raise HTTPException(status_code=400, detail="Encounter already completed")
 
@@ -304,6 +362,55 @@ class EncounterService:
         diagnosis = result.scalar_one()
         await self.db.commit()
         return DiagnosisResponse.model_validate(diagnosis)
+
+    async def get_referral(self, referral_id: uuid.UUID, doctor_user: User) -> ReferralResponse:
+        doctor = await self._get_doctor_record(doctor_user, require_for_admin=False)
+        referral = await self._load_referral(referral_id, doctor_user, doctor)
+        return ReferralResponse.model_validate(referral)
+
+    async def update_referral(self, referral_id: uuid.UUID, data: ReferralUpdate, doctor_user: User) -> ReferralResponse:
+        doctor = await self._get_doctor_record(doctor_user, require_for_admin=False)
+        referral = await self._load_referral(referral_id, doctor_user, doctor)
+        if referral.status != ReferralStatus.ACTIVE:
+            raise HTTPException(status_code=400, detail="Referral cannot be edited in its current status")
+
+        updates = data.model_dump(exclude_unset=True)
+        for field, value in updates.items():
+            setattr(referral, field, value)
+
+        self.db.add(AuditLog(
+            user_id=doctor_user.id, action="UPDATE_REFERRAL",
+            resource="referrals", resource_id=referral.id,
+            details=updates,
+        ))
+        await self.db.commit()
+        await self.db.refresh(referral)
+        return ReferralResponse.model_validate(referral)
+
+    async def cancel_referral(self, referral_id: uuid.UUID, doctor_user: User) -> ReferralResponse:
+        doctor = await self._get_doctor_record(doctor_user, require_for_admin=False)
+        referral = await self._load_referral(referral_id, doctor_user, doctor)
+        if referral.status != ReferralStatus.ACTIVE:
+            raise HTTPException(status_code=400, detail="Referral already cancelled or used")
+
+        referral.status = ReferralStatus.CANCELLED
+        self.db.add(AuditLog(
+            user_id=doctor_user.id, action="CANCEL_REFERRAL",
+            resource="referrals", resource_id=referral.id,
+        ))
+        await self.db.commit()
+        await self.db.refresh(referral)
+        return ReferralResponse.model_validate(referral)
+
+    async def delete_referral(self, referral_id: uuid.UUID, doctor_user: User) -> None:
+        doctor = await self._get_doctor_record(doctor_user, require_for_admin=False)
+        referral = await self._load_referral(referral_id, doctor_user, doctor)
+        await self.db.delete(referral)
+        self.db.add(AuditLog(
+            user_id=doctor_user.id, action="DELETE_REFERRAL",
+            resource="referrals", resource_id=referral.id,
+        ))
+        await self.db.commit()
 
     async def search_icd10(self, query: str, limit: int = 20) -> list[ICD10SearchResponse]:
         limit = min(limit, 50)
@@ -326,7 +433,8 @@ class EncounterService:
     async def create_referral(self, data: ReferralCreate, user: User) -> ReferralResponse:
         from app.services.esoz_connector import esoz
 
-        doctor = await self._get_doctor_record(user)
+        doctor = await self._get_doctor_record(user, require_for_admin=False)
+        is_admin = self._is_admin(user)
 
         # Validate encounter belongs to this doctor
         enc_result = await self.db.execute(
@@ -335,13 +443,15 @@ class EncounterService:
         encounter = enc_result.scalar_one_or_none()
         if not encounter:
             raise HTTPException(status_code=404, detail="Encounter not found")
-        if encounter.doctor_id != doctor.id:
+        if not is_admin and (doctor is None or encounter.doctor_id != doctor.id):
             raise HTTPException(status_code=403, detail="Access denied")
+
+        referral_doctor_id = encounter.doctor_id if is_admin else doctor.id
 
         referral = Referral(
             encounter_id=data.encounter_id,
             patient_id=encounter.patient_id,
-            doctor_id=doctor.id,
+            doctor_id=referral_doctor_id,
             specialization_id=data.specialization_id,
             reason=data.reason,
             status=ReferralStatus.ACTIVE,
@@ -353,7 +463,7 @@ class EncounterService:
         try:
             esoz_data = await esoz.create_referral({
                 "patient_id": str(encounter.patient_id),
-                "doctor_id": str(doctor.id),
+                "doctor_id": str(referral_doctor_id),
                 "reason": data.reason,
             })
             referral.esoz_referral_id = esoz_data.get("id")
@@ -364,6 +474,19 @@ class EncounterService:
         await self.db.commit()
         await self.db.refresh(referral)
         return ReferralResponse.model_validate(referral)
+
+    async def _load_referral(self, referral_id: uuid.UUID, user: User, doctor: Optional[Doctor]) -> Referral:
+        result = await self.db.execute(
+            select(Referral)
+            .where(Referral.id == referral_id)
+            .options(selectinload(Referral.encounter))
+        )
+        referral = result.scalar_one_or_none()
+        if not referral:
+            raise HTTPException(status_code=404, detail="Referral not found")
+        if not self._is_admin(user) and (doctor is None or referral.doctor_id != doctor.id):
+            raise HTTPException(status_code=403, detail="Access denied")
+        return referral
 
     async def get_patient_referrals(self, patient_id: uuid.UUID) -> list[ReferralResponse]:
         result = await self.db.execute(

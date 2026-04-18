@@ -3,8 +3,6 @@
 export type UserRole = 'PATIENT' | 'DOCTOR' | 'ADMIN' | 'SUPER_ADMIN'
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER'
 export type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | 'UNKNOWN'
-export type SmokingStatus = 'NEVER' | 'FORMER' | 'CURRENT' | 'UNKNOWN'
-export type AlcoholStatus = 'NEVER' | 'FORMER' | 'CURRENT' | 'UNKNOWN'
 export type AllergySeverity = 'MILD' | 'MODERATE' | 'SEVERE'
 export type EncounterStatus = 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 export type ReferralStatus = 'ACTIVE' | 'USED' | 'CANCELLED' | 'EXPIRED'
@@ -53,6 +51,7 @@ export interface PatientAddress {
 
 export interface PatientResponse {
   id: string
+  user_id?: string
   tax_id: string
   unzr?: string
   first_name: string
@@ -100,12 +99,18 @@ export interface MedicalCardResponse {
   blood_type?: BloodType
   height_cm?: number
   weight_kg?: number
-  smoking_status?: SmokingStatus
-  alcohol_status?: AlcoholStatus
   disability_group?: string
   notes?: string
   allergies: AllergyResponse[]
   chronic_diseases: ChronicDiseaseResponse[]
+}
+
+export interface AllergenResponse {
+  id: string
+  code: string
+  name_ua: string
+  category?: string
+  international_name?: string
 }
 
 export interface DocumentResponse {
@@ -166,6 +171,20 @@ export interface ReferralResponse {
   created_at: string
   expires_at?: string
 }
+
+export interface MyReferralResponse {
+  id: string
+  encounter_id: string
+  patient_id: string
+  doctor_full_name: string
+  specialization_name?: string
+  reason?: string
+  status: ReferralStatus
+  esoz_referral_id?: string
+  created_at: string
+  expires_at?: string
+}
+
 
 // ── Prescriptions ─────────────────────────────────────────────────────────────
 
@@ -288,8 +307,6 @@ export interface MedicalCardReadResponse {
   blood_type?: BloodType
   height_cm?: number
   weight_kg?: number
-  smoking_status?: SmokingStatus
-  alcohol_status?: AlcoholStatus
   disability_group?: string
   notes?: string
   allergies: AllergyReadResponse[]
@@ -340,6 +357,19 @@ export interface MyDocumentResponse {
   file_url: string
   file_size?: number
   uploaded_at: string
+}
+
+export interface MyReferralResponse {
+  id: string
+  encounter_id: string
+  patient_id: string
+  doctor_full_name: string
+  specialization_name?: string
+  reason?: string
+  status: ReferralStatus
+  esoz_referral_id?: string
+  created_at: string
+  expires_at?: string
 }
 
 // ── Admin ─────────────────────────────────────────────────────────────────────

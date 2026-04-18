@@ -27,17 +27,28 @@ class PrescriptionService:
         self.db = db
         self.redis = redis
 
-    async def _get_doctor_record(self, user: User) -> Doctor:
+    @staticmethod
+    def _is_admin(user: User) -> bool:
+        return user.role in (UserRole.ADMIN, UserRole.SUPER_ADMIN)
+
+    async def _get_doctor_record(self, user: User, *, require_for_admin: bool = True) -> Optional[Doctor]:
         result = await self.db.execute(
             select(Doctor).where(Doctor.user_id == user.id)
         )
         doctor = result.scalar_one_or_none()
+        if doctor:
+            return doctor
+
+        if self._is_admin(user) and not require_for_admin:
+            # Admin/SuperAdmin can manage doctor resources without personal Doctor profile.
+            return None
+
         if not doctor:
             raise HTTPException(status_code=404, detail="Doctor profile not found")
         return doctor
 
     async def create_prescription(self, data: PrescriptionCreate, doctor_user: User) -> PrescriptionResponse:
-        doctor = await self._get_doctor_record(doctor_user)
+        doctor = await self._get_doctor_record(doctor_user, require_for_admin=False)
 
         enc_result = await self.db.execute(
             select(Encounter).where(Encounter.id == data.encounter_id)
@@ -45,8 +56,8 @@ class PrescriptionService:
         encounter = enc_result.scalar_one_or_none()
         if not encounter:
             raise HTTPException(status_code=404, detail="Encounter not found")
-        if encounter.doctor_id != doctor.id:
-            raise HTTPException(status_code=403, detail="Encounter does not belong to this doctor")
+        if not self._is_admin(doctor_user) and (doctor is None or encounter.doctor_id != doctor.id):
+            raise HTTPException(status_code=403, detail="Access denied")
 
         drug_result = await self.db.execute(
             select(Drug).where(Drug.id == data.drug_id)
@@ -82,7 +93,7 @@ class PrescriptionService:
         prescription = Prescription(
             encounter_id=data.encounter_id,
             patient_id=encounter.patient_id,
-            doctor_id=doctor.id,
+            doctor_id=encounter.doctor_id,  # Use encounter's doctor, not actor's
             drug_id=data.drug_id,
             dosage=data.dosage,
             frequency=data.frequency,
@@ -98,7 +109,7 @@ class PrescriptionService:
         try:
             payload = {
                 "patient_id": str(prescription.patient_id),
-                "doctor_id": str(doctor.id),
+                "doctor_id": str(encounter.doctor_id),
                 "drug_inn": drug.inn,
                 "atc_code": drug.atc_code,
                 "dosage": data.dosage,
@@ -164,7 +175,7 @@ class PrescriptionService:
         return [PrescriptionResponse.model_validate(p) for p in prescriptions]
 
     async def cancel_prescription(self, prescription_id: uuid.UUID, data: PrescriptionCancelRequest, doctor_user: User) -> PrescriptionResponse:
-        doctor = await self._get_doctor_record(doctor_user)
+        doctor = await self._get_doctor_record(doctor_user, require_for_admin=False)
 
         result = await self.db.execute(
             select(Prescription)
@@ -174,7 +185,7 @@ class PrescriptionService:
         prescription = result.scalar_one_or_none()
         if not prescription:
             raise HTTPException(status_code=404, detail="Prescription not found")
-        if prescription.doctor_id != doctor.id:
+        if not self._is_admin(doctor_user) and (doctor is None or prescription.doctor_id != doctor.id):
             raise HTTPException(status_code=403, detail="Access denied")
         if prescription.status != PrescriptionStatus.ACTIVE:
             raise HTTPException(status_code=400, detail="Prescription is not active")

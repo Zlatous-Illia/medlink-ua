@@ -88,7 +88,10 @@ export function LoginPage() {
             {errors.password && <p className="error-msg">{errors.password.message}</p>}
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-between">
+            <Link to="/register" className="text-sm text-blue-600 hover:underline">
+              Зареєструватись
+            </Link>
             <Link to="/forgot-password" className="text-sm text-blue-600 hover:underline">
               Забули пароль?
             </Link>

@@ -1,8 +1,9 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 from app.models.user import UserRole
+from app.models.patient import Gender
 
 
 class UserRegisterRequest(BaseModel):
@@ -13,6 +14,10 @@ class UserRegisterRequest(BaseModel):
     middle_name: Optional[str] = Field(None, max_length=100)
     phone: Optional[str] = Field(None, max_length=20)
     role: UserRole = UserRole.PATIENT
+    # Optional patient-profile fields — if provided for PATIENT role, creates Patient record
+    tax_id: Optional[str] = Field(None, max_length=10)
+    birth_date: Optional[date] = None
+    gender: Optional[Gender] = None
 
     @field_validator("password")
     @classmethod

@@ -18,6 +18,7 @@ from app.schemas.admin import (
     AuditLogResponse,
     SystemStatsResponse,
 )
+from app.schemas.auth import UserRegisterRequest
 from app.services.admin_service import AdminService
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -26,6 +27,17 @@ _admin_only = require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
 
 
 # ─── Users ────────────────────────────────────────────────────────────────────
+
+@router.post("/users", response_model=UserAdminDetailResponse, status_code=201)
+async def create_user(
+    data: UserRegisterRequest,
+    current_user: Annotated[User, Depends(_admin_only)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    redis: Annotated[aioredis.Redis, Depends(get_redis)],
+):
+    """Створити нового користувача будь-якої ролі (тільки ADMIN/SUPER_ADMIN)."""
+    return await AdminService(db, redis).create_user(data, current_user)
+
 
 @router.get("/users", response_model=list[UserAdminResponse])
 async def list_users(
@@ -74,6 +86,17 @@ async def deactivate_user(
 ):
     """Деактивувати користувача + відкликати всі refresh-токени."""
     return await AdminService(db, redis).deactivate_user(user_id, current_user)
+
+
+@router.delete("/users/{user_id}", status_code=204)
+async def delete_user(
+    user_id: uuid.UUID,
+    current_user: Annotated[User, Depends(_admin_only)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    redis: Annotated[aioredis.Redis, Depends(get_redis)],
+):
+    """Повністю видалити користувача (тільки SUPER_ADMIN захищений)."""
+    await AdminService(db, redis).delete_user(user_id, current_user)
 
 
 # ─── Audit log ────────────────────────────────────────────────────────────────

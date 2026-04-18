@@ -4,6 +4,7 @@ import asyncio
 import functools
 import io
 import uuid
+from datetime import timedelta
 from typing import Optional
 
 import redis.asyncio as aioredis
@@ -16,7 +17,7 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.core.security import verify_password, hash_password
 from app.models.clinical import (
-    Encounter, Diagnosis, Prescription, PrescriptionStatus,
+    Encounter, Diagnosis, Prescription, Referral, PrescriptionStatus,
 )
 from app.models.doctor import Doctor
 from app.models.patient import (
@@ -28,7 +29,7 @@ from app.schemas.patient_cabinet import (
     MedicalCardReadResponse, AllergyReadResponse, ChronicDiseaseReadResponse, ICD10Brief,
     MyEncounterResponse, DiagnosisBriefResponse,
     MyPrescriptionResponse, DrugBriefResponse,
-    MyDocumentResponse,
+    MyDocumentResponse, MyReferralResponse,
 )
 
 
@@ -52,6 +53,13 @@ def _get_minio() -> Minio:
 async def _run_sync(func, *args, **kwargs):
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, functools.partial(func, *args, **kwargs))
+
+
+def _extract_object_key(file_url: str, bucket: str) -> str:
+    """Extract MinIO object key from stored absolute file URL."""
+    prefix_http = f"http://{settings.MINIO_ENDPOINT}/{bucket}/"
+    prefix_https = f"https://{settings.MINIO_ENDPOINT}/{bucket}/"
+    return file_url.removeprefix(prefix_http).removeprefix(prefix_https)
 
 
 # ─── Service ──────────────────────────────────────────────────────────────────
@@ -191,8 +199,6 @@ class PatientCabinetService:
             blood_type=card.blood_type,
             height_cm=card.height_cm,
             weight_kg=float(card.weight_kg) if card.weight_kg is not None else None,
-            smoking_status=card.smoking_status,
-            alcohol_status=card.alcohol_status,
             disability_group=card.disability_group,
             notes=card.notes,
             allergies=[AllergyReadResponse.model_validate(a) for a in patient.allergies],
@@ -305,16 +311,73 @@ class PatientCabinetService:
         )
         documents = result.scalars().all()
 
-        return [
-            MyDocumentResponse(
-                id=doc.id,
-                file_name=doc.file_name,
-                file_type=doc.file_type,
-                file_url=doc.file_url,
-                file_size=doc.file_size,
-                uploaded_at=doc.created_at,
+        bucket = settings.MINIO_BUCKET_DOCUMENTS
+        minio = _get_minio()
+
+        responses: list[MyDocumentResponse] = []
+        for doc in documents:
+            download_url = doc.file_url
+            try:
+                object_key = _extract_object_key(doc.file_url, bucket)
+                download_url = await _run_sync(
+                    minio.presigned_get_object,
+                    bucket,
+                    object_key,
+                    expires=timedelta(minutes=15),
+                )
+            except Exception:
+                # Fallback to stored URL if presign generation fails.
+                pass
+
+            responses.append(
+                MyDocumentResponse(
+                    id=doc.id,
+                    file_name=doc.file_name,
+                    file_type=doc.file_type,
+                    file_url=download_url,
+                    file_size=doc.file_size,
+                    uploaded_at=doc.created_at,
+                )
             )
-            for doc in documents
+
+        return responses
+
+    # ── GET /me/referrals ─────────────────────────────────────────────────────
+
+    async def get_referrals(self, user: User) -> list[MyReferralResponse]:
+        patient = await self._get_patient(user)
+
+        result = await self.db.execute(
+            select(Referral)
+            .where(Referral.patient_id == patient.id)
+            .options(
+                selectinload(Referral.doctor).selectinload(Doctor.user),
+                selectinload(Referral.specialization),
+            )
+            .order_by(Referral.created_at.desc())
+        )
+        referrals = result.scalars().all()
+
+        self.db.add(AuditLog(
+            user_id=user.id, action="VIEW_REFERRALS",
+            resource="patients", resource_id=patient.id,
+        ))
+        await self.db.commit()
+
+        return [
+            MyReferralResponse(
+                id=r.id,
+                encounter_id=r.encounter_id,
+                patient_id=r.patient_id,
+                doctor_full_name=r.doctor.full_name if r.doctor else "",
+                specialization_name=r.specialization.name_ua if r.specialization else None,
+                reason=r.reason,
+                status=r.status,
+                esoz_referral_id=r.esoz_referral_id,
+                created_at=r.created_at,
+                expires_at=r.expires_at,
+            )
+            for r in referrals
         ]
 
     # ── PATCH /me/change-password ─────────────────────────────────────────────
