@@ -10,6 +10,21 @@ from tests.conftest import FakeRedis
 
 
 @pytest.mark.asyncio
+async def test_admin_can_list_doctors_without_trailing_slash(async_client: AsyncClient, fake_redis: FakeRedis):
+    """Admin should be able to access doctors list endpoint without trailing slash."""
+    admin_token = await _create_user_and_login(
+        async_client, fake_redis, "admin@test.com", "Admin@123456", role="ADMIN"
+    )
+
+    response = await async_client.get(
+        "/api/v1/doctors",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+    assert isinstance(response.json(), list)
+
+
+@pytest.mark.asyncio
 async def test_admin_can_view_medical_card(async_client: AsyncClient, fake_redis: FakeRedis):
     """Admin should be able to view patient medical card without doctor profile."""
     # Create admin user (no doctor profile)

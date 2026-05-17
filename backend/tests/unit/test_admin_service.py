@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password
 from app.models.doctor import Doctor
+from app.models.scheduling import Schedule
 from app.models.user import User, UserRole
 from app.schemas.admin import UserAdminUpdate
 from app.services.admin_service import AdminService
@@ -53,4 +54,9 @@ class TestAdminUpdateUser:
         )).scalar_one_or_none()
         assert doctor_profile is not None
         assert doctor_profile.is_active is True
+
+        schedules = (await db_session.execute(
+            select(Schedule).where(Schedule.doctor_id == doctor_profile.id, Schedule.is_active == True)
+        )).scalars().all()
+        assert len(schedules) == 5
 

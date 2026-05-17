@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { ArrowLeft, Stethoscope, Upload, AlertTriangle, Plus, Edit2, Search, X, ExternalLink } from 'lucide-react'
@@ -43,8 +43,12 @@ function calcBMI(height?: number, weight?: number): string {
 export function PatientDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>('ЕМК')
+  const encounterEditorPath = location.pathname.startsWith('/admin')
+    ? '/admin/encounters/new'
+    : '/doctor/encounters/new'
 
   // EMK editing states
   const [editingCard, setEditingCard] = useState(false)
@@ -63,6 +67,7 @@ export function PatientDetailPage() {
   // Allergen autocomplete
   const [allergenQuery, setAllergenQuery] = useState('')
   const [allergenResults, setAllergenResults] = useState<AllergenResponse[]>([])
+  const [isAllergenFocused, setIsAllergenFocused] = useState(false)
 
   // Chronic disease editing
   const [editingDiseaseId, setEditingDiseaseId] = useState<string | null>(null)
@@ -86,6 +91,7 @@ export function PatientDetailPage() {
   const [showDiseaseForm, setShowDiseaseForm] = useState(false)
   const [diseaseQuery, setDiseaseQuery] = useState('')
   const [diseaseResults, setDiseaseResults] = useState<ICD10SearchResponse[]>([])
+  const [isDiseaseFocused, setIsDiseaseFocused] = useState(false)
   const [diseaseForm, setDiseaseForm] = useState({ icd10_id: '', icd10_label: '', diagnosed_at: '', notes: '' })
 
   const { data: patient, isLoading } = useQuery({
@@ -322,14 +328,8 @@ export function PatientDetailPage() {
   }
 
   function openEditEncounter(enc: EncounterResponse) {
-    setEditEncounterForm({
-      complaints: enc.complaints ?? '',
-      anamnesis: enc.anamnesis ?? '',
-      objective_exam: enc.objective_exam ?? '',
-      treatment_plan: enc.treatment_plan ?? '',
-      recommendations: enc.recommendations ?? '',
-    })
-    setEditingEncounterId(enc.id)
+    const readonly = enc.status === 'IN_PROGRESS' ? '0' : '1'
+    navigate(`${encounterEditorPath}?encounter_id=${enc.id}&patient_id=${enc.patient_id}&readonly=${readonly}`)
   }
 
   function openEditReferral(ref: ReferralResponse) {
@@ -337,24 +337,37 @@ export function PatientDetailPage() {
     setEditReferralForm({ reason: ref.reason ?? '' })
   }
 
-  async function searchAllergens(q: string) {
-    setAllergenQuery(q)
-    setAllergyForm(f => ({ ...f, substance: q }))
-    if (q.length < 2) { setAllergenResults([]); return }
-    try {
-      const r = await patientsApi.searchAllergens(q)
-      setAllergenResults(r.data)
-    } catch { /* ignore */ }
-  }
+  useEffect(() => {
+    if (!showAllergyForm || !isAllergenFocused) {
+      setAllergenResults([])
+      return
+    }
+    const t = setTimeout(async () => {
+      try {
+        const r = await patientsApi.searchAllergens(allergenQuery)
+        setAllergenResults(r.data)
+      } catch {
+        setAllergenResults([])
+      }
+    }, 250)
+    return () => clearTimeout(t)
+  }, [showAllergyForm, isAllergenFocused, allergenQuery])
 
-  async function searchICD10(q: string) {
-    setDiseaseQuery(q)
-    if (q.length < 2) { setDiseaseResults([]); return }
-    try {
-      const r = await encountersApi.searchICD10(q)
-      setDiseaseResults(r.data)
-    } catch { /* ignore */ }
-  }
+  useEffect(() => {
+    if (!showDiseaseForm || !isDiseaseFocused) {
+      setDiseaseResults([])
+      return
+    }
+    const t = setTimeout(async () => {
+      try {
+        const r = await encountersApi.searchICD10(diseaseQuery)
+        setDiseaseResults(r.data)
+      } catch {
+        setDiseaseResults([])
+      }
+    }, 250)
+    return () => clearTimeout(t)
+  }, [showDiseaseForm, isDiseaseFocused, diseaseQuery])
 
   if (isLoading) return <PageLoading />
   if (!patient) return <div className="text-gray-500">Пацієнта не знайдено</div>
@@ -377,7 +390,7 @@ export function PatientDetailPage() {
         </div>
         <div className="ml-auto">
           <button
-            onClick={() => navigate(`/doctor/encounters/new?patient_id=${id}`)}
+            onClick={() => navigate(`${encounterEditorPath}?patient_id=${id}`)}
             className="btn-primary btn"
           >
             <Stethoscope className="h-4 w-4" />
@@ -500,15 +513,20 @@ export function PatientDetailPage() {
 
             {showAllergyForm && (
               <div className="mb-4 p-4 bg-orange-50 rounded-lg border border-orange-100 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
+                <div className="flex gap-3 items-end">
+                  <div className="flex-1 min-w-0">
                     <label className="label">Речовина / алерген</label>
                     <div className="relative">
                       <input type="text" className="input" placeholder="Пошук алергену або введіть вручну…"
                         value={allergenQuery}
-                        onChange={e => searchAllergens(e.target.value)} />
-                      {allergenResults.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg max-h-40 overflow-y-auto">
+                        onFocus={() => setIsAllergenFocused(true)}
+                        onBlur={() => setTimeout(() => setIsAllergenFocused(false), 120)}
+                        onChange={e => {
+                          setAllergenQuery(e.target.value)
+                          setAllergyForm(f => ({ ...f, substance: e.target.value }))
+                        }} />
+                      {isAllergenFocused && allergenResults.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg max-h-56 overflow-y-auto">
                           {allergenResults.map(a => (
                             <button key={a.id}
                               className="w-full text-left px-3 py-2 hover:bg-orange-50 text-sm"
@@ -517,15 +535,18 @@ export function PatientDetailPage() {
                                 setAllergenQuery(a.name_ua)
                                 setAllergenResults([])
                               }}>
-                              <span className="font-medium">{a.name_ua}</span>
-                              {a.category && <span className="text-gray-400 ml-2 text-xs">{a.category}</span>}
+                              <p className="font-medium text-gray-900">UA: {a.name_ua}</p>
+                              {a.international_name && <p className="text-gray-600">EN: {a.international_name}</p>}
+                              <p className="text-xs text-gray-500">
+                                {[`Code: ${a.code}`, a.category, a.component].filter(Boolean).join(' • ')}
+                              </p>
                             </button>
                           ))}
                         </div>
                       )}
                     </div>
                   </div>
-                  <div>
+                  <div className="w-44 shrink-0">
                     <label className="label">Ступінь тяжкості</label>
                     <select className="input" value={allergyForm.severity}
                       onChange={e => setAllergyForm(f => ({ ...f, severity: e.target.value as AllergySeverity }))}>
@@ -628,19 +649,25 @@ export function PatientDetailPage() {
                     <input type="text" className="input pl-9"
                       placeholder="Введіть назву або код…"
                       value={diseaseQuery}
-                      onChange={e => searchICD10(e.target.value)} />
-                    {diseaseResults.length > 0 && (
+                      onFocus={() => setIsDiseaseFocused(true)}
+                      onBlur={() => setTimeout(() => setIsDiseaseFocused(false), 120)}
+                      onChange={e => setDiseaseQuery(e.target.value)} />
+                    {isDiseaseFocused && diseaseResults.length > 0 && (
                       <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg max-h-48 overflow-y-auto">
                         {diseaseResults.map(item => (
                           <button key={item.id}
                             className="w-full flex items-center gap-3 px-3 py-2 hover:bg-blue-50 text-left text-sm"
                             onClick={() => {
-                              setDiseaseForm(f => ({ ...f, icd10_id: item.id, icd10_label: `${item.code} — ${item.name_ua}` }))
-                              setDiseaseQuery(`${item.code} — ${item.name_ua}`)
+                              const label = `${item.code} — ${item.name_ua}${item.name_en ? ` / ${item.name_en}` : ''}`
+                              setDiseaseForm(f => ({ ...f, icd10_id: item.id, icd10_label: label }))
+                              setDiseaseQuery(label)
                               setDiseaseResults([])
                             }}>
                             <span className="badge bg-blue-100 text-blue-700 font-mono shrink-0">{item.code}</span>
-                            <span className="truncate text-gray-700">{item.name_ua}</span>
+                            <div className="min-w-0">
+                              <p className="truncate text-gray-800">{item.name_ua}</p>
+                              {item.name_en && <p className="truncate text-xs text-gray-500">{item.name_en}</p>}
+                            </div>
                           </button>
                         ))}
                       </div>
@@ -718,7 +745,10 @@ export function PatientDetailPage() {
                         <span className="badge bg-blue-100 text-blue-700 font-mono shrink-0">
                           {d.icd10?.code}
                         </span>
-                        <span className="text-gray-700 flex-1">{d.icd10?.name_ua}</span>
+                        <span className="text-gray-700 flex-1">
+                          {d.icd10?.name_ua}
+                          {d.icd10?.name_en ? ` / ${d.icd10.name_en}` : ''}
+                        </span>
                         {d.diagnosed_at && (
                           <span className="text-gray-400 text-xs">
                             з {format(new Date(d.diagnosed_at), 'dd.MM.yyyy')}
@@ -773,10 +803,9 @@ export function PatientDetailPage() {
                     <button
                       className="btn-secondary btn-sm btn"
                       onClick={() => openEditEncounter(enc)}
-                      disabled={enc.status !== 'IN_PROGRESS'}
                     >
                       <Edit2 className="h-3.5 w-3.5" />
-                      Редагувати
+                      {enc.status === 'IN_PROGRESS' ? 'Продовжити' : 'Переглянути'}
                     </button>
                     <button
                       className="btn-secondary btn-sm btn"
@@ -795,53 +824,17 @@ export function PatientDetailPage() {
                     </button>
                   </div>
                 </div>
-                {editingEncounterId === enc.id ? (
-                  <div className="space-y-3 mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                    {([
-                      ['complaints', 'Скарги'],
-                      ['anamnesis', 'Анамнез захворювання'],
-                      ['objective_exam', 'Об\'єктивний огляд'],
-                      ['treatment_plan', 'План лікування'],
-                      ['recommendations', 'Рекомендації'],
-                    ] as [keyof typeof editEncounterForm, string][]).map(([key, label]) => (
-                      <div key={key}>
-                        <label className="label text-xs">{label}</label>
-                        <textarea
-                          rows={2}
-                          className="input resize-none"
-                          value={editEncounterForm[key]}
-                          onChange={e => setEditEncounterForm(f => ({ ...f, [key]: e.target.value }))}
-                        />
-                      </div>
+                {enc.complaints && (
+                  <p className="text-sm text-gray-700">{enc.complaints}</p>
+                )}
+                {enc.diagnoses.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {enc.diagnoses.map(d => (
+                      <span key={d.id} className="badge bg-gray-100 text-gray-600 font-mono text-xs">
+                        {d.icd10?.code ?? d.icd10_id.slice(0, 8)}
+                      </span>
                     ))}
-                    <div className="flex gap-2">
-                      <button
-                        className="btn-primary btn-sm btn"
-                        disabled={updateEncounterMutation.isPending}
-                        onClick={() => updateEncounterMutation.mutate({ encounterId: enc.id, data: editEncounterForm })}
-                      >
-                        Зберегти
-                      </button>
-                      <button className="btn-secondary btn-sm btn" onClick={() => setEditingEncounterId(null)}>
-                        Скасувати
-                      </button>
-                    </div>
                   </div>
-                ) : (
-                  <>
-                    {enc.complaints && (
-                      <p className="text-sm text-gray-700">{enc.complaints}</p>
-                    )}
-                    {enc.diagnoses.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {enc.diagnoses.map(d => (
-                          <span key={d.id} className="badge bg-gray-100 text-gray-600 font-mono text-xs">
-                            {d.icd10?.code ?? d.icd10_id.slice(0, 8)}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </>
                 )}
               </div>
             ))

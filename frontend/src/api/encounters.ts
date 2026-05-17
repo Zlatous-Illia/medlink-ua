@@ -43,8 +43,8 @@ export const encountersApi = {
   getByPatient: (patientId: string) =>
     client.get<EncounterResponse[]>(`/encounters/patients/${patientId}/encounters`),
 
-  searchICD10: (q: string, limit = 10) =>
-    client.get<ICD10SearchResponse[]>('/icd10/search', { params: { q, limit } }),
+  searchICD10: (q = '') =>
+    client.get<ICD10SearchResponse[]>('/icd10/search', { params: { q } }),
 
   createReferral: (encounterId: string, data: {
     specialization_id?: string

@@ -104,6 +104,7 @@ class ICD10Summary(BaseModel):
     id: uuid.UUID
     code: str
     name_ua: str
+    name_en: Optional[str] = None
 
 
 class ChronicDiseaseResponse(BaseModel):
@@ -189,3 +190,4 @@ class AllergenResponse(BaseModel):
     name_ua: str
     category: Optional[str] = None
     international_name: Optional[str] = None
+    component: Optional[str] = None

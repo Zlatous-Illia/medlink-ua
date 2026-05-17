@@ -128,3 +128,32 @@ class TestReferralLifecycle:
         await svc.delete_referral(referral.id, doctor)
         assert await db_session.get(Referral, referral.id) is None
 
+
+class TestICD10Search:
+    async def test_search_icd10_returns_all_on_empty_query(self, db_session, fake_redis):
+        doctor = await _create_doctor(db_session, email="doctor5@enc-test.com")
+        svc = make_service(db_session, fake_redis)
+
+        db_session.add_all([
+            ICD10Code(code="A01", name_ua="Черевний тиф", name_en="Typhoid fever", is_active=True),
+            ICD10Code(code="B02", name_ua="Опоясувальний герпес", name_en="Zoster [herpes zoster]", is_active=True),
+            ICD10Code(code="C03", name_ua="Inactive code", name_en="Inactive", is_active=False),
+        ])
+        await db_session.commit()
+
+        result = await svc.search_icd10("")
+        assert len(result) == 2
+        assert {item.code for item in result} == {"A01", "B02"}
+
+    async def test_search_icd10_matches_english_name(self, db_session, fake_redis):
+        doctor = await _create_doctor(db_session, email="doctor6@enc-test.com")
+        svc = make_service(db_session, fake_redis)
+
+        db_session.add(ICD10Code(code="D10", name_ua="Доброякісні новоутворення", name_en="Benign neoplasms", is_active=True))
+        await db_session.commit()
+
+        result = await svc.search_icd10("benign")
+        assert len(result) == 1
+        assert result[0].code == "D10"
+
+

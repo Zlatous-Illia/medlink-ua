@@ -38,7 +38,7 @@ async def search_drugs(
     current_user: Annotated[User, Depends(require_doctor)],
     db: Annotated[AsyncSession, Depends(get_db)],
     redis: Annotated[aioredis.Redis, Depends(get_redis)],
-    q: str = Query(..., min_length=1),
+    q: str = Query(""),
     limit: int = Query(20, ge=1, le=50),
 ):
     return await PrescriptionService(db, redis).search_drugs(q, limit)

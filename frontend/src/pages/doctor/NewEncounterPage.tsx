@@ -83,18 +83,29 @@ export function NewEncounterPage() {
   const [selectedPatient, setSelectedPatient] = useState<PatientResponse | null>(null)
   const patientIdParam = searchParams.get('patient_id') ?? ''
   const appointmentId = searchParams.get('appointment_id') ?? undefined
+  const existingEncounterId = searchParams.get('encounter_id')
+  const readOnlyParam = searchParams.get('readonly') === '1'
+  const [isIcd10Focused, setIsIcd10Focused] = useState(false)
+  const [isDrugFocused, setIsDrugFocused] = useState(false)
+
+  const { data: existingEncounter } = useQuery({
+    queryKey: ['encounter', existingEncounterId],
+    queryFn: () => encountersApi.get(existingEncounterId!).then(r => r.data),
+    enabled: !!existingEncounterId,
+  })
 
   // If patient_id is in URL, load patient info
   const { data: urlPatient } = useQuery({
-    queryKey: ['patient', patientIdParam],
-    queryFn: () => patientsApi.get(patientIdParam).then(r => r.data),
-    enabled: !!patientIdParam,
+    queryKey: ['patient', patientIdParam || existingEncounter?.patient_id],
+    queryFn: () => patientsApi.get((patientIdParam || existingEncounter?.patient_id)!).then(r => r.data),
+    enabled: !!(patientIdParam || existingEncounter?.patient_id),
   })
 
   const activePatient = urlPatient ?? selectedPatient
-  const patientId = patientIdParam || selectedPatient?.id || ''
+  const patientId = patientIdParam || selectedPatient?.id || existingEncounter?.patient_id || ''
+  const isReadOnly = readOnlyParam || (!!existingEncounter && existingEncounter.status !== 'IN_PROGRESS')
 
-  const [encounterId, setEncounterId] = useState<string | null>(null)
+  const [encounterId, setEncounterId] = useState<string | null>(existingEncounterId)
   const [encounterStarted, setEncounterStarted] = useState(false)
   const encounterCreatingRef = useRef(false)
   const [form, setForm] = useState({
@@ -128,6 +139,7 @@ export function NewEncounterPage() {
 
   // Create encounter when patient is selected — ref guards against double-fire
   useEffect(() => {
+    if (existingEncounterId) return
     if (!patientId || encounterCreatingRef.current || encounterStarted) return
     encounterCreatingRef.current = true
     setEncounterStarted(true)
@@ -140,14 +152,27 @@ export function NewEncounterPage() {
         setEncounterStarted(false)
         encounterCreatingRef.current = false
       })
-  }, [patientId])
+  }, [patientId, existingEncounterId])
+
+  useEffect(() => {
+    if (!existingEncounter) return
+    setEncounterId(existingEncounter.id)
+    setEncounterStarted(true)
+    setForm({
+      complaints: existingEncounter.complaints ?? '',
+      anamnesis: existingEncounter.anamnesis ?? '',
+      objective_exam: existingEncounter.objective_exam ?? '',
+      treatment_plan: existingEncounter.treatment_plan ?? '',
+      recommendations: existingEncounter.recommendations ?? '',
+    })
+  }, [existingEncounter])
 
   const save = useCallback(async () => {
-    if (!encounterId) return
+    if (!encounterId || isReadOnly) return
     try {
       await encountersApi.update(encounterId, form)
     } catch { /* silent */ }
-  }, [encounterId, form])
+  }, [encounterId, form, isReadOnly])
 
   useEffect(() => {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
@@ -156,18 +181,18 @@ export function NewEncounterPage() {
   }, [form, save])
 
   useEffect(() => {
-    if (icd10Query.length < 2) { setIcd10Results([]); return }
+    if (!isIcd10Focused || isReadOnly) { setIcd10Results([]); return }
     const t = setTimeout(() =>
-      encountersApi.searchICD10(icd10Query).then(r => setIcd10Results(r.data)), 300)
+      encountersApi.searchICD10(icd10Query).then(r => setIcd10Results(r.data)), 250)
     return () => clearTimeout(t)
-  }, [icd10Query])
+  }, [icd10Query, isIcd10Focused, isReadOnly])
 
   useEffect(() => {
-    if (drugQuery.length < 2) { setDrugResults([]); return }
+    if (!isDrugFocused || isReadOnly) { setDrugResults([]); return }
     const t = setTimeout(() =>
-      prescriptionsApi.searchDrugs(drugQuery).then(r => setDrugResults(r.data)), 300)
+      prescriptionsApi.searchDrugs(drugQuery).then(r => setDrugResults(r.data)), 250)
     return () => clearTimeout(t)
-  }, [drugQuery])
+  }, [drugQuery, isDrugFocused, isReadOnly])
 
   const addDiagnosisMutation = useMutation({
     mutationFn: (data: { icd10_id: string; type: DiagnosisType }) =>
@@ -262,22 +287,31 @@ export function NewEncounterPage() {
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Прийом</h1>
+          <h1 className="text-xl font-bold text-gray-900">
+            {isReadOnly ? 'Перегляд прийому' : 'Прийом'}
+          </h1>
           <p className="text-sm text-gray-500">{fullName}</p>
+          {existingEncounter && (
+            <p className="text-xs text-gray-400 mt-1">Статус: {existingEncounter.status}</p>
+          )}
         </div>
         <div className="ml-auto flex gap-2">
-          <button onClick={save} className="btn-secondary btn-sm btn">
-            <Save className="h-4 w-4" />
-            Зберегти
-          </button>
-          <button
-            onClick={() => completeMutation.mutate()}
-            disabled={completeMutation.isPending}
-            className="btn-primary btn-sm btn"
-          >
-            <CheckCircle className="h-4 w-4" />
-            Завершити прийом
-          </button>
+          {!isReadOnly && (
+            <>
+              <button onClick={save} className="btn-secondary btn-sm btn">
+                <Save className="h-4 w-4" />
+                Зберегти
+              </button>
+              <button
+                onClick={() => completeMutation.mutate()}
+                disabled={completeMutation.isPending}
+                className="btn-primary btn-sm btn"
+              >
+                <CheckCircle className="h-4 w-4" />
+                Завершити прийом
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -296,6 +330,7 @@ export function NewEncounterPage() {
               rows={3}
               className="input resize-none"
               value={form[key]}
+              disabled={isReadOnly}
               onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
               placeholder={`Введіть ${label.toLowerCase()}…`}
             />
@@ -314,18 +349,25 @@ export function NewEncounterPage() {
               className="input pl-9"
               placeholder="Пошук МКБ-10…"
               value={icd10Query}
+              disabled={isReadOnly}
+              onFocus={() => setIsIcd10Focused(true)}
+              onBlur={() => setTimeout(() => setIsIcd10Focused(false), 120)}
               onChange={e => setIcd10Query(e.target.value)}
             />
-            {icd10Results.length > 0 && (
+            {isIcd10Focused && icd10Results.length > 0 && (
               <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg max-h-48 overflow-y-auto">
                 {icd10Results.map(item => (
                   <button
                     key={item.id}
                     className="w-full flex items-center gap-3 px-3 py-2 hover:bg-blue-50 text-left text-sm"
                     onClick={() => addDiagnosisMutation.mutate({ icd10_id: item.id, type: diagType })}
+                    disabled={isReadOnly}
                   >
                     <span className="badge bg-blue-100 text-blue-700 font-mono shrink-0">{item.code}</span>
-                    <span className="truncate text-gray-700">{item.name_ua}</span>
+                    <div className="min-w-0">
+                      <p className="truncate text-gray-800">{item.name_ua}</p>
+                      {item.name_en && <p className="truncate text-xs text-gray-500">{item.name_en}</p>}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -334,6 +376,7 @@ export function NewEncounterPage() {
           <select
             className="input w-40"
             value={diagType}
+            disabled={isReadOnly}
             onChange={e => setDiagType(e.target.value as DiagnosisType)}
           >
             {DIAGNOSIS_TYPES.map(t => (
@@ -362,19 +405,25 @@ export function NewEncounterPage() {
               className="input"
               placeholder="Пошук препарату…"
               value={drugQuery}
+              disabled={isReadOnly}
+              onFocus={() => setIsDrugFocused(true)}
+              onBlur={() => setTimeout(() => setIsDrugFocused(false), 120)}
               onChange={e => setDrugQuery(e.target.value)}
             />
-            {drugResults.length > 0 && (
+            {isDrugFocused && drugResults.length > 0 && (
               <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg max-h-48 overflow-y-auto">
                 {drugResults.map(drug => (
                   <button
                     key={drug.id}
-                    className="w-full flex items-center gap-3 px-3 py-2 hover:bg-blue-50 text-left text-sm"
+                    className="w-full px-3 py-2 hover:bg-blue-50 text-left text-sm"
                     onClick={() => selectDrug(drug)}
+                    disabled={isReadOnly}
                   >
-                    <span className="font-medium text-gray-900">{drug.inn}</span>
-                    {drug.trade_name && <span className="text-gray-500">({drug.trade_name})</span>}
-                    {drug.form && <span className="text-gray-400 text-xs ml-auto">{drug.form}</span>}
+                    <p className="font-medium text-gray-900">EN: {drug.inn}</p>
+                    {drug.trade_name && <p className="text-gray-600">UA: {drug.trade_name}</p>}
+                    <p className="text-xs text-gray-500">
+                      {[drug.atc_code, drug.form, drug.dosage].filter(Boolean).join(' • ') || '—'}
+                    </p>
                   </button>
                 ))}
               </div>
@@ -384,29 +433,29 @@ export function NewEncounterPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Дозування</label>
-              <input type="text" className="input" placeholder="500 мг" value={rxForm.dosage}
+              <input type="text" className="input" placeholder="500 мг" value={rxForm.dosage} disabled={isReadOnly}
                 onChange={e => setRxForm(f => ({ ...f, dosage: e.target.value }))} />
             </div>
             <div>
               <label className="label">Частота прийому</label>
-              <input type="text" className="input" placeholder="2 рази на день" value={rxForm.frequency}
+              <input type="text" className="input" placeholder="2 рази на день" value={rxForm.frequency} disabled={isReadOnly}
                 onChange={e => setRxForm(f => ({ ...f, frequency: e.target.value }))} />
             </div>
             <div>
               <label className="label">Тривалість (днів)</label>
-              <input type="number" className="input" placeholder="7" value={rxForm.duration_days}
+              <input type="number" className="input" placeholder="7" value={rxForm.duration_days} disabled={isReadOnly}
                 onChange={e => setRxForm(f => ({ ...f, duration_days: e.target.value }))} />
             </div>
             <div>
               <label className="label">Інструкції</label>
-              <input type="text" className="input" placeholder="Після їжі" value={rxForm.instructions}
+              <input type="text" className="input" placeholder="Після їжі" value={rxForm.instructions} disabled={isReadOnly}
                 onChange={e => setRxForm(f => ({ ...f, instructions: e.target.value }))} />
             </div>
           </div>
 
           <button
             onClick={() => addRxMutation.mutate()}
-            disabled={!rxForm.drug_id || addRxMutation.isPending}
+              disabled={isReadOnly || !rxForm.drug_id || addRxMutation.isPending}
             className="btn-secondary btn self-start"
           >
             <Plus className="h-4 w-4" />

@@ -72,6 +72,7 @@ export interface ICD10Summary {
   id: string
   code: string
   name_ua: string
+  name_en?: string
 }
 
 export interface AllergyResponse {
@@ -111,6 +112,7 @@ export interface AllergenResponse {
   name_ua: string
   category?: string
   international_name?: string
+  component?: string
 }
 
 export interface DocumentResponse {

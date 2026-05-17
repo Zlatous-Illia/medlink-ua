@@ -86,7 +86,7 @@ medlink-ua/
 │   │   └── workers/                 # Celery задачі (нагадування)
 │   ├── scripts/                     # import_icd10.py, import_drugs.py, import_allergens.py
 │   ├── templates/                   # encounter_pdf.html (WeasyPrint)
-│   ├── tests/                       # 93 тести (unit + integration)
+│   ├── tests/                       # 111 тестів (unit + integration)
 │   └── alembic/                     # Міграції БД
 ├── esoz-mock/        # Mock ЕСОЗ API (порт 8080)
 │   └── app/routers/  # oauth, persons, prescriptions, drugs, referrals
@@ -120,7 +120,7 @@ medlink-ua/
 | **Документи** | GET + DELETE документів пацієнта (фронт: список з розміром, датою, видаленням) | ✅ Done |
 | **Dockerfiles** | `backend/Dockerfile`, `esoz-mock/Dockerfile`, `frontend/Dockerfile` (multi-stage nginx) | ✅ Done |
 | **docker-compose.yml** | Повний стек одною командою: інфраструктура + backend + esoz-mock + frontend | ✅ Done |
-| **Тести** | 104 тести: AuthService, PatientService, Auth API, Patient Cabinet API, **Admin capabilities** | ✅ Done |
+| **Тести** | 111 тестів: 59 unit (AuthService, PatientService, PrescriptionService, EncounterService, AdminService) + 52 integration (Auth API, Patient Cabinet API, Admin capabilities) | ✅ Done |
 
 ### Що ще не реалізовано
 | Компонент | Пріоритет | Деталі |
@@ -227,23 +227,24 @@ SMTP_PASSWORD=your_password
 **Вимога:** Docker Desktop запущений (`docker compose up -d`).
 Тести використовують окрему базу даних `medlink_test` (створюється автоматично).
 
-> **Статус: 104/104 тестів проходять** (перевірено на Windows, Python 3.11)
+> **Статус: 111/111 тестів проходять** (перевірено на Windows, Python 3.11)
 
 ```
 backend/tests/
 ├── conftest.py                      # FakeRedis, NullPool test engine (medlink_test), clean_db, user fixtures
 ├── unit/
 │   ├── test_auth_service.py         # 25 тестів: register, login, OTP, lockout, tokens, password reset
-│   ├── test_patient_service.py      # 22 тести: CRUD, пошук, access control, алергії, медкарта
-│   ├── test_admin_service.py        # 1 тест: оновлення ролі користувача до DOCTOR (створює профіль лікаря)
-│   └── test_encounter_service.py    # 2 тести: скасування та видалення прийомів, направлень
+│   ├── test_patient_service.py      # 24 тести: CRUD, пошук, access control, алергії, медкарта, allergen search
+│   ├── test_prescription_service.py # 4 тести: пошук препаратів, перевірка алергій, ЕСОЗ sync
+│   ├── test_encounter_service.py    # 5 тестів: CRUD прийомів, направлень, ICD-10 пошук
+│   └── test_admin_service.py        # 1 тест: оновлення ролі користувача до DOCTOR (створює профіль лікаря)
 └── integration/
     ├── test_auth_api.py             # 25 тестів: повний 2FA flow, refresh, logout, /me, reset password
-    ├── test_patient_cabinet_api.py  # 21 тест: GET/PATCH /me, медкарта, прийоми, рецепти, change-password
-    └── test_admin_capabilities.py   # 5 тестів: адмін може робити все, що робить лікар (без профілю doctors)
+    ├── test_patient_cabinet_api.py  # 23 тести: GET/PATCH /me, медкарта, прийоми, рецепти, документи, change-password
+    └── test_admin_capabilities.py   # 6 тестів: адмін може робити все, що робить лікар (без профілю doctors)
 ```
 
-Разом: **104 тести** (50 unit + 54 integration).
+Разом: **111 тестів** (59 unit + 52 integration).
 
 **Нові тести в `test_admin_capabilities.py`:**
 - ✅ Admin може переглядати медичну карту пацієнта
@@ -261,9 +262,10 @@ backend/tests/
 
 ```bash
 cd backend
-pytest -v                              # всі 93 тести
+pytest -v                              # всі 111 тестів
 pytest tests/unit/ -v                  # тільки unit (швидко)
 pytest --cov=app --cov-report=html -v  # з покриттям → htmlcov/index.html
+pytest -q --tb=no -W ignore::Warning --junitxml=pytest_results.xml > $null 2> $null; python scripts\aggregate_test_results.py
 ```
 
 ---

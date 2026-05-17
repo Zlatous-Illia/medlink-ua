@@ -17,6 +17,7 @@ from app.core.security import (
 from app.models.user import User, UserRole, RefreshToken, AuditLog
 from app.models.patient import Patient, MedicalCard
 from app.models.doctor import Doctor
+from app.services.schedule_defaults import ensure_default_doctor_schedule
 from app.schemas.auth import (
     UserRegisterRequest, UserLoginRequest, OTPVerifyRequest,
     TokenResponse, LoginStep1Response, UserResponse,
@@ -88,7 +89,10 @@ class AuthService:
 
         # Ensure doctor profile exists for doctor accounts.
         if data.role == UserRole.DOCTOR:
-            self.db.add(Doctor(user_id=user.id, is_active=True))
+            doctor = Doctor(user_id=user.id, is_active=True)
+            self.db.add(doctor)
+            await self.db.flush()
+            await ensure_default_doctor_schedule(self.db, doctor.id)
 
         # Audit
         self.db.add(AuditLog(

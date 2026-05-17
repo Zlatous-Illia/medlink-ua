@@ -12,7 +12,7 @@ export const prescriptionsApi = {
     instructions?: string
   }) => client.post<PrescriptionResponse>('/prescriptions', data),
 
-  searchDrugs: (q: string, limit = 10) =>
+  searchDrugs: (q = '', limit = 10) =>
     client.get<DrugResponse[]>('/prescriptions/drugs/search', { params: { q, limit } }),
 
   getByPatient: (patientId: string, status?: PrescriptionStatus) =>

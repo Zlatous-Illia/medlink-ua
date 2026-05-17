@@ -190,7 +190,6 @@ async def search_icd10(
     current_user: Annotated[User, Depends(require_doctor)],
     db: Annotated[AsyncSession, Depends(get_db)],
     redis: Annotated[aioredis.Redis, Depends(get_redis)],
-    q: str = Query(..., min_length=1),
-    limit: int = Query(20, ge=1, le=50),
+    q: str = Query(""),
 ):
-    return await EncounterService(db, redis).search_icd10(q, limit)
+    return await EncounterService(db, redis).search_icd10(q)

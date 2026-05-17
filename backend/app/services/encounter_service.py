@@ -412,19 +412,21 @@ class EncounterService:
         ))
         await self.db.commit()
 
-    async def search_icd10(self, query: str, limit: int = 20) -> list[ICD10SearchResponse]:
-        limit = min(limit, 50)
-        pattern = f"%{query}%"
-        result = await self.db.execute(
-            select(ICD10Code)
-            .where(
-                and_(
-                    ICD10Code.is_active == True,
-                    (ICD10Code.code.ilike(pattern) | ICD10Code.name_ua.ilike(pattern)),
-                )
+    async def search_icd10(self, query: str, limit: int | None = None) -> list[ICD10SearchResponse]:
+        normalized_query = (query or "").strip()
+        statement = select(ICD10Code).where(ICD10Code.is_active == True)
+
+        if normalized_query:
+            pattern = f"%{normalized_query}%"
+            statement = statement.where(
+                ICD10Code.code.ilike(pattern)
+                | ICD10Code.name_ua.ilike(pattern)
+                | ICD10Code.name_en.ilike(pattern)
             )
-            .limit(limit)
-        )
+        statement = statement.order_by(ICD10Code.code.asc())
+        if limit is not None:
+            statement = statement.limit(limit)
+        result = await self.db.execute(statement)
         codes = result.scalars().all()
         return [ICD10SearchResponse.model_validate(c) for c in codes]
 

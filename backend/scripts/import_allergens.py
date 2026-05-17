@@ -37,7 +37,6 @@ def import_allergens(file_path: str) -> None:
     records = []
     with open(source_path, encoding="utf-8") as f:
         reader = csv.reader(f, delimiter=";")
-        headers = next(reader)  # skip header row
         for row in reader:
             if len(row) < 4:
                 continue
@@ -46,6 +45,11 @@ def import_allergens(file_path: str) -> None:
             name_ua = row[3].strip()
             international_name = row[4].strip() if len(row) > 4 else None
             component = row[5].strip() if len(row) > 5 else None
+
+            # Skip header rows from files that contain both a technical header
+            # (Column1;Column2;...) and a localized header (Категорія;...).
+            if category in {"Column1", "Категорія"} or code in {"Column3", "Код"} or name_ua in {"Column4", "Назва"}:
+                continue
 
             if not code or not name_ua:
                 continue

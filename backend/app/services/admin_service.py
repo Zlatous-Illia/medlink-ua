@@ -14,6 +14,7 @@ from app.models.patient import Patient
 from app.models.scheduling import Appointment, AppointmentStatus
 from app.models.doctor import Doctor
 from app.models.user import User, UserRole, RefreshToken, AuditLog
+from app.services.schedule_defaults import ensure_default_doctor_schedule
 from app.schemas.admin import (
     UserAdminResponse,
     UserAdminDetailResponse,
@@ -136,7 +137,11 @@ class AdminService:
                 )
                 doctor = doctor_result.scalar_one_or_none()
                 if not doctor:
-                    self.db.add(Doctor(user_id=user.id, is_active=True))
+                    doctor = Doctor(user_id=user.id, is_active=True)
+                    self.db.add(doctor)
+                    await self.db.flush()
+
+                await ensure_default_doctor_schedule(self.db, doctor.id)
 
         for field in ("first_name", "last_name", "middle_name", "phone", "email"):
             value = getattr(data, field, None)

@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.patient import Patient, MedicalCard, Allergy, AllergySeverity
+from app.models.reference import Allergen
 from app.models.user import User, UserRole
 from app.core.security import hash_password
 from app.schemas.patients import (
@@ -324,6 +325,43 @@ class TestAllergies:
                 AllergyCreate(substance="X", severity=AllergySeverity.MILD),
             )
         assert exc_info.value.status_code == 404
+
+
+        class TestAllergenSearch:
+            async def test_search_allergens_returns_all_on_empty_query(self, db_session, fake_redis):
+                doctor = await _create_doctor(db_session)
+                svc = make_service(db_session, fake_redis)
+
+                patient = await svc.create_patient(make_patient_create("9090909090"), doctor.id)
+                db_session.add_all([
+                    Allergen(code="ALG-1", name_ua="Пилок берези", category="seasonal", international_name="birch pollen", component="Bet v 1", is_active=True),
+                    Allergen(code="ALG-2", name_ua="Котячий епітелій", category="animal", international_name="cat dander", component="Fel d 1", is_active=True),
+                    Allergen(code="ALG-3", name_ua="Inactive", category="x", international_name="x", component="x", is_active=False),
+                ])
+                await db_session.commit()
+
+                result = await svc.search_allergens("")
+                assert len(result) == 2
+                assert {a.code for a in result} == {"ALG-1", "ALG-2"}
+
+            async def test_search_allergens_matches_all_columns(self, db_session, fake_redis):
+                doctor = await _create_doctor(db_session)
+                svc = make_service(db_session, fake_redis)
+
+                await svc.create_patient(make_patient_create("9191919191"), doctor.id)
+                db_session.add(Allergen(
+                    code="ALG-9",
+                    name_ua="Латекс",
+                    category="contact",
+                    international_name="natural rubber latex",
+                    component="latex proteins",
+                    is_active=True,
+                ))
+                await db_session.commit()
+
+                result = await svc.search_allergens("latex proteins")
+                assert len(result) == 1
+                assert result[0].code == "ALG-9"
 
 
 # ─── Medical card ─────────────────────────────────────────────────────────────

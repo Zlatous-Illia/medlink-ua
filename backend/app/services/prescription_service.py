@@ -6,7 +6,7 @@ from typing import Optional
 
 import redis.asyncio as aioredis
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -207,14 +207,22 @@ class PrescriptionService:
 
     async def search_drugs(self, query: str, limit: int = 20) -> list[DrugResponse]:
         limit = min(limit, 50)
-        pattern = f"%{query}%"
-        result = await self.db.execute(
-            select(Drug)
-            .where(
-                Drug.is_active == True,
-                (Drug.inn.ilike(pattern) | Drug.trade_name.ilike(pattern) | Drug.atc_code.ilike(pattern)),
+        normalized_query = (query or "").strip()
+        statement = select(Drug).where(Drug.is_active == True)
+
+        if normalized_query:
+            pattern = f"%{normalized_query}%"
+            statement = statement.where(
+                or_(
+                    Drug.inn.ilike(pattern),
+                    Drug.trade_name.ilike(pattern),
+                    Drug.atc_code.ilike(pattern),
+                    Drug.form.ilike(pattern),
+                    Drug.dosage.ilike(pattern),
+                    Drug.manufacturer.ilike(pattern),
+                )
             )
-            .limit(limit)
-        )
+
+        result = await self.db.execute(statement.order_by(Drug.inn.asc()).limit(limit))
         drugs = result.scalars().all()
         return [DrugResponse.model_validate(d) for d in drugs]

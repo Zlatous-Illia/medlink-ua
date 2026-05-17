@@ -475,21 +475,26 @@ class PatientService:
 
     # ── Allergen search ───────────────────────────────────────────────────────
 
-    async def search_allergens(self, query: str, limit: int = 20) -> list[AllergenResponse]:
-        limit = min(limit, 50)
-        pattern = f"%{query}%"
-        result = await self.db.execute(
-            select(Allergen)
-            .where(
-                Allergen.is_active == True,
+    async def search_allergens(self, query: str, limit: int | None = None) -> list[AllergenResponse]:
+        normalized_query = (query or "").strip()
+        statement = select(Allergen).where(Allergen.is_active == True)
+
+        if normalized_query:
+            pattern = f"%{normalized_query}%"
+            statement = statement.where(
                 or_(
-                    Allergen.name_ua.ilike(pattern),
                     Allergen.code.ilike(pattern),
+                    Allergen.name_ua.ilike(pattern),
                     Allergen.international_name.ilike(pattern),
+                    Allergen.category.ilike(pattern),
+                    Allergen.component.ilike(pattern),
                 )
             )
-            .limit(limit)
-        )
+
+        statement = statement.order_by(Allergen.name_ua.asc())
+        if limit is not None:
+            statement = statement.limit(limit)
+        result = await self.db.execute(statement)
         allergens = result.scalars().all()
         return [AllergenResponse.model_validate(a) for a in allergens]
 

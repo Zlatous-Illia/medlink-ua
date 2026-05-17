@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User, UserRole, RefreshToken
 from app.models.doctor import Doctor
+from app.models.scheduling import Schedule
 from app.core.security import hash_password, verify_password
 from app.schemas.auth import (
     UserRegisterRequest, UserLoginRequest, OTPVerifyRequest,
@@ -112,6 +113,11 @@ class TestRegister:
             select(Doctor).where(Doctor.user_id == result.id)
         )).scalar_one_or_none()
         assert doctor_profile is not None
+
+        schedules = (await db_session.execute(
+            select(Schedule).where(Schedule.doctor_id == doctor_profile.id, Schedule.is_active == True)
+        )).scalars().all()
+        assert len(schedules) == 5
 
 
 # ─── Login Step 1 ─────────────────────────────────────────────────────────────

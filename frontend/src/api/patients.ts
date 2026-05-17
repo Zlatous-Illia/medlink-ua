@@ -108,6 +108,6 @@ export const patientsApi = {
     client.get<EncounterSummary[]>(`/patients/${id}/history`),
 
   // Allergen reference search
-  searchAllergens: (q: string, limit = 20) =>
-    client.get<AllergenResponse[]>('/patients/allergens/search', { params: { q, limit } }),
+  searchAllergens: (q = '') =>
+    client.get<AllergenResponse[]>('/patients/allergens/search', { params: { q } }),
 }

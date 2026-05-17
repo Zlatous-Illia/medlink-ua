@@ -16,6 +16,13 @@ const TABS: { label: string; status?: PrescriptionStatus }[] = [
 export function MyPrescriptionsPage() {
   const [activeTab, setActiveTab] = useState<typeof TABS[number]>(TABS[0])
   const [expandedQR, setExpandedQR] = useState<string | null>(null)
+  const [demoQrValues, setDemoQrValues] = useState<Record<string, string>>({})
+
+  function generateDemoQr(rxId: string) {
+    const token = `DEMO-RX-${Math.random().toString(36).slice(2, 10).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`
+    setDemoQrValues(prev => ({ ...prev, [rxId]: token }))
+    setExpandedQR(rxId)
+  }
 
   const { data: prescriptions, isLoading, isError } = useQuery({
     queryKey: ['my-prescriptions', activeTab.status],
@@ -92,23 +99,33 @@ export function MyPrescriptionsPage() {
                   </p>
                 </div>
 
-                {rx.esoz_request_number && (
-                  <div className="shrink-0">
+                <div className="shrink-0 flex flex-col gap-2">
+                  {rx.esoz_request_number && (
                     <button
                       onClick={() => setExpandedQR(expandedQR === rx.id ? null : rx.id)}
                       className="btn-secondary btn-sm btn"
                     >
                       QR-код
                     </button>
-                  </div>
-                )}
+                  )}
+                  {rx.status === 'ACTIVE' && (
+                    <button
+                      onClick={() => generateDemoQr(rx.id)}
+                      className="btn-secondary btn-sm btn"
+                    >
+                      Згенерувати QR
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {expandedQR === rx.id && rx.esoz_request_number && (
+              {expandedQR === rx.id && (rx.esoz_request_number || demoQrValues[rx.id]) && (
                 <div className="mt-4 flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-lg">
-                  <QRCode value={rx.esoz_request_number} size={160} />
-                  <p className="text-xs text-gray-500 font-mono">{rx.esoz_request_number}</p>
-                  <p className="text-xs text-gray-400">Покажіть QR-код у аптеці</p>
+                  <QRCode value={demoQrValues[rx.id] ?? rx.esoz_request_number!} size={160} />
+                  <p className="text-xs text-gray-500 font-mono">{demoQrValues[rx.id] ?? rx.esoz_request_number}</p>
+                  <p className="text-xs text-gray-400">
+                    {demoQrValues[rx.id] ? 'QR' : 'Покажіть QR-код у аптеці'}
+                  </p>
                 </div>
               )}
             </div>

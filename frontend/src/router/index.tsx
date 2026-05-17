@@ -102,6 +102,7 @@ export const router = createBrowserRouter([
       { path: '/admin/users/:id', element: <WithShell><UserDetailPage /></WithShell> },
       { path: '/admin/patients', element: <WithShell><AdminPatientsPage /></WithShell> },
       { path: '/admin/patients/:id', element: <WithShell><PatientDetailPage /></WithShell> },
+      { path: '/admin/encounters/new', element: <WithShell><NewEncounterPage /></WithShell> },
       { path: '/admin/audit-logs', element: <WithShell><AuditLogPage /></WithShell> },
     ],
   },

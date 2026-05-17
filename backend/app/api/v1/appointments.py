@@ -79,7 +79,7 @@ async def cancel_appointment(
     return await AppointmentService(db, redis).cancel_appointment(appointment_id, data, current_user)
 
 
-@doctors_router.get("/", response_model=list[DoctorListResponse])
+@doctors_router.get("", response_model=list[DoctorListResponse])
 async def list_doctors(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
