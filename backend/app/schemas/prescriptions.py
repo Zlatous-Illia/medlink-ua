@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.clinical import PrescriptionStatus
 
@@ -23,11 +23,11 @@ class DrugResponse(BaseModel):
 class PrescriptionCreate(BaseModel):
     encounter_id: uuid.UUID
     drug_id: uuid.UUID
-    dosage: Optional[str] = None
-    frequency: Optional[str] = None
-    duration_days: Optional[int] = None
-    quantity: Optional[int] = None
-    instructions: Optional[str] = None
+    dosage: str = Field(min_length=1, max_length=100)
+    frequency: str = Field(min_length=1, max_length=100)
+    duration_days: int = Field(ge=1, le=365)
+    quantity: int = Field(ge=1, le=3650)
+    instructions: str = Field(min_length=1, max_length=1000)
 
 
 class PrescriptionResponse(BaseModel):

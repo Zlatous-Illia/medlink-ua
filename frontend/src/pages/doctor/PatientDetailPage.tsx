@@ -128,11 +128,11 @@ export function PatientDetailPage() {
   const [showReferralForm, setShowReferralForm] = useState(false)
   const [referralForm, setReferralForm] = useState({ encounter_id: '', reason: '' })
   const [editingReferralId, setEditingReferralId] = useState<string | null>(null)
-  const [editReferralForm, setEditReferralForm] = useState({ reason: '' })
+  const [editReferralForm, setEditReferralForm] = useState({ encounter_id: '', reason: '' })
   const { data: patientEncounters } = useQuery({
     queryKey: ['encounters-for-referral', id],
     queryFn: () => encountersApi.getByPatient(id!).then(r => r.data),
-    enabled: !!id && showReferralForm,
+    enabled: !!id && tab === 'Направлення',
   })
 
   const addReferralMutation = useMutation({
@@ -149,8 +149,11 @@ export function PatientDetailPage() {
   })
 
   const updateReferralMutation = useMutation({
-    mutationFn: ({ referralId, data }: { referralId: string; data: { reason: string } }) =>
-      encountersApi.updateReferral(referralId, { reason: data.reason || undefined }),
+    mutationFn: ({ referralId, data }: { referralId: string; data: { encounter_id: string; reason: string } }) =>
+      encountersApi.updateReferral(referralId, {
+        encounter_id: data.encounter_id || undefined,
+        reason: data.reason || undefined,
+      }),
     onSuccess: () => {
       toast('success', 'Направлення оновлено')
       setEditingReferralId(null)
@@ -268,6 +271,15 @@ export function PatientDetailPage() {
     onError: () => toast('error', 'Помилка видалення прийому'),
   })
 
+  const deletePrescriptionMutation = useMutation({
+    mutationFn: (prescriptionId: string) => prescriptionsApi.delete(prescriptionId),
+    onSuccess: () => {
+      toast('success', 'Рецепт видалено')
+      qc.invalidateQueries({ queryKey: ['prescriptions', id] })
+    },
+    onError: () => toast('error', 'Помилка видалення рецепта'),
+  })
+
   const updateCardMutation = useMutation({
     mutationFn: () => patientsApi.updateMedicalCard(id!, {
       blood_type: cardForm.blood_type as BloodType || undefined,
@@ -334,7 +346,7 @@ export function PatientDetailPage() {
 
   function openEditReferral(ref: ReferralResponse) {
     setEditingReferralId(ref.id)
-    setEditReferralForm({ reason: ref.reason ?? '' })
+    setEditReferralForm({ encounter_id: ref.encounter_id, reason: ref.reason ?? '' })
   }
 
   useEffect(() => {
@@ -828,11 +840,12 @@ export function PatientDetailPage() {
                   <p className="text-sm text-gray-700">{enc.complaints}</p>
                 )}
                 {enc.diagnoses.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
+                  <div className="flex flex-wrap gap-2 mt-2">
                     {enc.diagnoses.map(d => (
-                      <span key={d.id} className="badge bg-gray-100 text-gray-600 font-mono text-xs">
-                        {d.icd10?.code ?? d.icd10_id.slice(0, 8)}
-                      </span>
+                      <div key={d.id} className="rounded-md bg-gray-50 border border-gray-200 px-2 py-1 text-xs">
+                        <span className="font-mono text-gray-700 mr-1">{d.icd10?.code ?? d.icd10_id.slice(0, 8)}</span>
+                        <span className="text-gray-600">{d.icd10?.name_ua ?? 'Діагноз без назви'}</span>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -855,6 +868,7 @@ export function PatientDetailPage() {
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Дозування</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Статус</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Дата</th>
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
@@ -865,6 +879,16 @@ export function PatientDetailPage() {
                     <td className="px-4 py-3"><StatusBadge value={rx.status} /></td>
                     <td className="px-4 py-3 text-gray-500">
                       {format(new Date(rx.created_at), 'dd.MM.yyyy')}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        className="btn-secondary btn-sm btn text-red-600 hover:text-red-700"
+                        onClick={() => deletePrescriptionMutation.mutate(rx.id)}
+                        disabled={deletePrescriptionMutation.isPending}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Видалити
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -959,6 +983,21 @@ export function PatientDetailPage() {
                   </div>
                   {editingReferralId === ref.id ? (
                     <div className="space-y-3 mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                      <div>
+                        <label className="label text-xs">Прийом (для прив'язки)</label>
+                        <select
+                          className="input"
+                          value={editReferralForm.encounter_id}
+                          onChange={e => setEditReferralForm(f => ({ ...f, encounter_id: e.target.value }))}
+                        >
+                          <option value="">— оберіть прийом —</option>
+                          {patientEncounters?.map(enc => (
+                            <option key={enc.id} value={enc.id}>
+                              {format(new Date(enc.started_at), 'dd.MM.yyyy HH:mm')} — {enc.status}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                       <div>
                         <label className="label text-xs">Причина направлення</label>
                         <textarea

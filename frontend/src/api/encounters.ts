@@ -40,6 +40,15 @@ export const encountersApi = {
     notes?: string
   }) => client.post<DiagnosisResponse>(`/encounters/${id}/diagnoses`, data),
 
+  updateDiagnosis: (encounterId: string, diagnosisId: string, data: {
+    icd10_id?: string
+    type?: DiagnosisType
+    notes?: string
+  }) => client.patch<DiagnosisResponse>(`/encounters/${encounterId}/diagnoses/${diagnosisId}`, data),
+
+  deleteDiagnosis: (encounterId: string, diagnosisId: string) =>
+    client.delete<void>(`/encounters/${encounterId}/diagnoses/${diagnosisId}`),
+
   getByPatient: (patientId: string) =>
     client.get<EncounterResponse[]>(`/encounters/patients/${patientId}/encounters`),
 
@@ -57,6 +66,7 @@ export const encountersApi = {
   getReferral: (referralId: string) => client.get<ReferralResponse>(`/encounters/referrals/${referralId}`),
 
   updateReferral: (referralId: string, data: {
+    encounter_id?: string
     specialization_id?: string
     reason?: string
   }) => client.patch<ReferralResponse>(`/encounters/referrals/${referralId}`, data),

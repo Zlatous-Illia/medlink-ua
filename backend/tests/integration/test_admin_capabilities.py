@@ -210,6 +210,7 @@ async def test_admin_can_create_prescription(async_client: AsyncClient, fake_red
                 "frequency": "twice daily",
                 "duration_days": 10,
                 "quantity": 20,
+                "instructions": "After meals",
             },
             headers={"Authorization": f"Bearer {admin_token}"},
         )

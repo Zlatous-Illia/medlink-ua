@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password
-from app.models.clinical import Encounter, EncounterStatus, PrescriptionStatus
+from app.models.clinical import Encounter, EncounterStatus, Prescription, PrescriptionStatus
 from app.models.doctor import Doctor
 from app.models.patient import Patient, MedicalCard, Allergy, AllergySeverity, Gender
 from app.models.reference import Drug
@@ -126,6 +126,8 @@ class TestAllergyWarning:
                         dosage="500 mg",
                         frequency="twice daily",
                         duration_days=7,
+                        quantity=14,
+                        instructions="After meal",
                     ),
                     doctor_user,
                 )
@@ -160,6 +162,8 @@ class TestAllergyWarning:
                     dosage="500 mg",
                     frequency="once daily",
                     duration_days=5,
+                    quantity=5,
+                    instructions="Before sleep",
                 ),
                 doctor_user,
             )
@@ -168,4 +172,35 @@ class TestAllergyWarning:
         assert result.drug is not None
         assert result.drug.inn == "Paracetamol"
         assert result.esoz_request_number == "REQ-001"
+
+    async def test_delete_prescription_removes_row(self, db_session, fake_redis):
+        doctor_user, doctor = await _create_doctor(db_session, email="doctor5@rx-test.com")
+        patient = await _create_patient(db_session, tax_id="4444444444")
+        encounter = await _create_encounter(db_session, patient, doctor)
+        svc = make_service(db_session, fake_redis)
+
+        db_session.add(Drug(inn="Ibuprofen", trade_name="Nurofen", is_active=True))
+        await db_session.commit()
+        drug = (await db_session.execute(select(Drug).where(Drug.inn == "Ibuprofen"))).scalar_one()
+
+        with patch(
+            "app.services.esoz_connector.esoz.create_prescription",
+            new=AsyncMock(return_value={"id": str(uuid.uuid4()), "request_number": "REQ-DELETE"}),
+        ):
+            created = await svc.create_prescription(
+                PrescriptionCreate(
+                    encounter_id=encounter.id,
+                    drug_id=drug.id,
+                    dosage="200 mg",
+                    frequency="twice daily",
+                    duration_days=3,
+                    quantity=6,
+                    instructions="After food",
+                ),
+                doctor_user,
+            )
+
+        await svc.delete_prescription(created.id, doctor_user)
+        deleted = await db_session.get(Prescription, created.id)
+        assert deleted is None
 

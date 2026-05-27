@@ -14,7 +14,14 @@ from app.models.doctor import Doctor
 from app.models.patient import Patient, MedicalCard, Gender
 from app.models.reference import ICD10Code
 from app.models.user import User, UserRole
-from app.schemas.encounters import EncounterCreate, EncounterUpdate, ReferralCreate, ReferralUpdate
+from app.schemas.encounters import (
+    DiagnosisCreate,
+    DiagnosisUpdate,
+    EncounterCreate,
+    EncounterUpdate,
+    ReferralCreate,
+    ReferralUpdate,
+)
 from app.services.encounter_service import EncounterService
 from tests.conftest import FakeRedis
 
@@ -90,7 +97,6 @@ class TestEncounterLifecycle:
         db_session.add(icd10)
         await db_session.commit()
 
-        from app.schemas.encounters import DiagnosisCreate
         await svc.add_diagnosis(encounter.id, DiagnosisCreate(icd10_id=icd10.id), doctor)
 
         with patch("app.services.esoz_connector.esoz.create_referral", new=AsyncMock(return_value={"id": "ref-1"})):
@@ -127,6 +133,53 @@ class TestReferralLifecycle:
 
         await svc.delete_referral(referral.id, doctor)
         assert await db_session.get(Referral, referral.id) is None
+
+    async def test_update_referral_can_change_encounter(self, db_session, fake_redis):
+        doctor = await _create_doctor(db_session, email="doctor7@enc-test.com")
+        patient = await _create_patient(db_session, tax_id="5555555555")
+        svc = make_service(db_session, fake_redis)
+        encounter1 = await _create_encounter(db_session, doctor, patient)
+        encounter2 = await _create_encounter(db_session, doctor, patient)
+
+        with patch("app.services.esoz_connector.esoz.create_referral", new=AsyncMock(return_value={"id": "ref-3"})):
+            referral = await svc.create_referral(
+                ReferralCreate(encounter_id=encounter1.id, reason="Консультація"),
+                doctor,
+            )
+
+        updated = await svc.update_referral(
+            referral.id,
+            ReferralUpdate(encounter_id=encounter2.id, reason="Оновлена причина"),
+            doctor,
+        )
+        assert updated.encounter_id == encounter2.id
+        assert updated.reason == "Оновлена причина"
+
+
+class TestDiagnosisLifecycle:
+    async def test_update_and_delete_diagnosis(self, db_session, fake_redis):
+        doctor = await _create_doctor(db_session, email="doctor8@enc-test.com")
+        patient = await _create_patient(db_session, tax_id="6666666666")
+        svc = make_service(db_session, fake_redis)
+        encounter = await _create_encounter(db_session, doctor, patient)
+
+        icd10_1 = ICD10Code(code="E10", name_ua="Цукровий діабет 1 типу", is_active=True)
+        icd10_2 = ICD10Code(code="E11", name_ua="Цукровий діабет 2 типу", is_active=True)
+        db_session.add_all([icd10_1, icd10_2])
+        await db_session.commit()
+
+        created = await svc.add_diagnosis(encounter.id, DiagnosisCreate(icd10_id=icd10_1.id), doctor)
+        updated = await svc.update_diagnosis(
+            encounter.id,
+            created.id,
+            DiagnosisUpdate(icd10_id=icd10_2.id, notes="Оновлений діагноз"),
+            doctor,
+        )
+        assert updated.icd10_id == icd10_2.id
+        assert updated.notes == "Оновлений діагноз"
+
+        await svc.delete_diagnosis(encounter.id, created.id, doctor)
+        assert await db_session.get(Diagnosis, created.id) is None
 
 
 class TestICD10Search:

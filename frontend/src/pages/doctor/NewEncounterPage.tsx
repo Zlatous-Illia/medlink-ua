@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Save, CheckCircle, Plus, Search, AlertTriangle, User } from 'lucide-react'
+import { ArrowLeft, Save, CheckCircle, Plus, Search, AlertTriangle, User, Edit2, Trash2 } from 'lucide-react'
 import { encountersApi } from '../../api/encounters'
 import { prescriptionsApi } from '../../api/prescriptions'
 import { patientsApi } from '../../api/patients'
@@ -87,11 +87,14 @@ export function NewEncounterPage() {
   const readOnlyParam = searchParams.get('readonly') === '1'
   const [isIcd10Focused, setIsIcd10Focused] = useState(false)
   const [isDrugFocused, setIsDrugFocused] = useState(false)
+  const [encounterId, setEncounterId] = useState<string | null>(existingEncounterId)
+  const [encounterStarted, setEncounterStarted] = useState(false)
+  const encounterCreatingRef = useRef(false)
 
   const { data: existingEncounter } = useQuery({
-    queryKey: ['encounter', existingEncounterId],
-    queryFn: () => encountersApi.get(existingEncounterId!).then(r => r.data),
-    enabled: !!existingEncounterId,
+    queryKey: ['encounter', encounterId ?? existingEncounterId],
+    queryFn: () => encountersApi.get((encounterId ?? existingEncounterId)!).then(r => r.data),
+    enabled: !!(encounterId ?? existingEncounterId),
   })
 
   // If patient_id is in URL, load patient info
@@ -105,9 +108,6 @@ export function NewEncounterPage() {
   const patientId = patientIdParam || selectedPatient?.id || existingEncounter?.patient_id || ''
   const isReadOnly = readOnlyParam || (!!existingEncounter && existingEncounter.status !== 'IN_PROGRESS')
 
-  const [encounterId, setEncounterId] = useState<string | null>(existingEncounterId)
-  const [encounterStarted, setEncounterStarted] = useState(false)
-  const encounterCreatingRef = useRef(false)
   const [form, setForm] = useState({
     complaints: '',
     anamnesis: '',
@@ -125,10 +125,16 @@ export function NewEncounterPage() {
     dosage: '',
     frequency: '',
     duration_days: '',
+    quantity: '',
     instructions: '',
   })
   const [allergyWarning, setAllergyWarning] = useState<string | null>(null)
   const [diagType, setDiagType] = useState<DiagnosisType>('MAIN')
+  const [editingDiagnosisId, setEditingDiagnosisId] = useState<string | null>(null)
+  const [diagEditForm, setDiagEditForm] = useState<{ type: DiagnosisType; notes: string }>({
+    type: 'MAIN',
+    notes: '',
+  })
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { data: medCard } = useQuery({
@@ -206,19 +212,40 @@ export function NewEncounterPage() {
     onError: () => toast('error', 'Помилка додавання діагнозу'),
   })
 
+  const updateDiagnosisMutation = useMutation({
+    mutationFn: ({ diagnosisId, data }: { diagnosisId: string; data: { type: DiagnosisType; notes?: string } }) =>
+      encountersApi.updateDiagnosis(encounterId!, diagnosisId, data),
+    onSuccess: () => {
+      toast('success', 'Діагноз оновлено')
+      setEditingDiagnosisId(null)
+      qc.invalidateQueries({ queryKey: ['encounter', encounterId] })
+    },
+    onError: () => toast('error', 'Помилка оновлення діагнозу'),
+  })
+
+  const deleteDiagnosisMutation = useMutation({
+    mutationFn: (diagnosisId: string) => encountersApi.deleteDiagnosis(encounterId!, diagnosisId),
+    onSuccess: () => {
+      toast('success', 'Діагноз видалено')
+      qc.invalidateQueries({ queryKey: ['encounter', encounterId] })
+    },
+    onError: () => toast('error', 'Помилка видалення діагнозу'),
+  })
+
   const addRxMutation = useMutation({
     mutationFn: () =>
       prescriptionsApi.create({
         encounter_id: encounterId!,
         drug_id: rxForm.drug_id,
-        dosage: rxForm.dosage || undefined,
-        frequency: rxForm.frequency || undefined,
-        duration_days: rxForm.duration_days ? parseInt(rxForm.duration_days) : undefined,
-        instructions: rxForm.instructions || undefined,
+        dosage: rxForm.dosage.trim(),
+        frequency: rxForm.frequency.trim(),
+        duration_days: parseInt(rxForm.duration_days),
+        quantity: parseInt(rxForm.quantity),
+        instructions: rxForm.instructions.trim(),
       }),
     onSuccess: () => {
       toast('success', 'Рецепт виписано')
-      setRxForm({ drug_id: '', drug_name: '', dosage: '', frequency: '', duration_days: '', instructions: '' })
+      setRxForm({ drug_id: '', drug_name: '', dosage: '', frequency: '', duration_days: '', quantity: '', instructions: '' })
       setDrugQuery('')
       setAllergyWarning(null)
     },
@@ -256,6 +283,21 @@ export function NewEncounterPage() {
     } else {
       setAllergyWarning(null)
     }
+  }
+
+  function hasCompleteRxForm() {
+    const duration = parseInt(rxForm.duration_days)
+    const quantity = parseInt(rxForm.quantity)
+    return (
+      !!rxForm.drug_id
+      && !!rxForm.dosage.trim()
+      && !!rxForm.frequency.trim()
+      && !!rxForm.instructions.trim()
+      && Number.isFinite(duration)
+      && duration > 0
+      && Number.isFinite(quantity)
+      && quantity > 0
+    )
   }
 
   // Show patient picker if no patient selected yet
@@ -384,6 +426,85 @@ export function NewEncounterPage() {
             ))}
           </select>
         </div>
+
+        {!!existingEncounter?.diagnoses?.length && (
+          <div className="space-y-2 mt-3">
+            {existingEncounter.diagnoses.map((d) => (
+              <div key={d.id} className="rounded-lg border border-gray-200 p-3">
+                {editingDiagnosisId === d.id ? (
+                  <div className="space-y-2">
+                    <div className="text-sm text-gray-700">
+                      {(d.icd10?.code ?? '—')} — {(d.icd10?.name_ua ?? 'Невідомий діагноз')}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        className="input"
+                        value={diagEditForm.type}
+                        onChange={(e) => setDiagEditForm((prev) => ({ ...prev, type: e.target.value as DiagnosisType }))}
+                      >
+                        {DIAGNOSIS_TYPES.map((t) => (
+                          <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="Нотатки"
+                        value={diagEditForm.notes}
+                        onChange={(e) => setDiagEditForm((prev) => ({ ...prev, notes: e.target.value }))}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        className="btn-primary btn-sm btn"
+                        disabled={updateDiagnosisMutation.isPending}
+                        onClick={() => updateDiagnosisMutation.mutate({
+                          diagnosisId: d.id,
+                          data: { type: diagEditForm.type, notes: diagEditForm.notes || undefined },
+                        })}
+                      >
+                        Зберегти
+                      </button>
+                      <button className="btn-secondary btn-sm btn" onClick={() => setEditingDiagnosisId(null)}>
+                        Скасувати
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3">
+                    <span className="badge bg-blue-100 text-blue-700 font-mono shrink-0">
+                      {d.icd10?.code ?? d.icd10_id.slice(0, 8)}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-900">{d.icd10?.name_ua ?? 'Невідомий діагноз'}</p>
+                      {d.icd10?.name_en && <p className="text-xs text-gray-500">{d.icd10.name_en}</p>}
+                    </div>
+                    {!isReadOnly && (
+                      <div className="flex gap-1">
+                        <button
+                          className="btn-secondary btn-sm btn"
+                          onClick={() => {
+                            setEditingDiagnosisId(d.id)
+                            setDiagEditForm({ type: d.type, notes: d.notes ?? '' })
+                          }}
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          className="btn-secondary btn-sm btn text-red-600 hover:text-red-700"
+                          disabled={deleteDiagnosisMutation.isPending}
+                          onClick={() => deleteDiagnosisMutation.mutate(d.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Prescription */}
@@ -447,6 +568,11 @@ export function NewEncounterPage() {
                 onChange={e => setRxForm(f => ({ ...f, duration_days: e.target.value }))} />
             </div>
             <div>
+              <label className="label">Кількість</label>
+              <input type="number" className="input" placeholder="20" value={rxForm.quantity} disabled={isReadOnly}
+                onChange={e => setRxForm(f => ({ ...f, quantity: e.target.value }))} />
+            </div>
+            <div>
               <label className="label">Інструкції</label>
               <input type="text" className="input" placeholder="Після їжі" value={rxForm.instructions} disabled={isReadOnly}
                 onChange={e => setRxForm(f => ({ ...f, instructions: e.target.value }))} />
@@ -454,8 +580,14 @@ export function NewEncounterPage() {
           </div>
 
           <button
-            onClick={() => addRxMutation.mutate()}
-              disabled={isReadOnly || !rxForm.drug_id || addRxMutation.isPending}
+            onClick={() => {
+              if (!hasCompleteRxForm()) {
+                toast('error', 'Заповніть усі поля рецепта')
+                return
+              }
+              addRxMutation.mutate()
+            }}
+            disabled={isReadOnly || addRxMutation.isPending}
             className="btn-secondary btn self-start"
           >
             <Plus className="h-4 w-4" />

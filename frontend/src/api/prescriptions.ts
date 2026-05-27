@@ -5,11 +5,11 @@ export const prescriptionsApi = {
   create: (data: {
     encounter_id: string
     drug_id: string
-    dosage?: string
-    frequency?: string
-    duration_days?: number
-    quantity?: number
-    instructions?: string
+    dosage: string
+    frequency: string
+    duration_days: number
+    quantity: number
+    instructions: string
   }) => client.post<PrescriptionResponse>('/prescriptions', data),
 
   searchDrugs: (q = '', limit = 10) =>
@@ -24,4 +24,6 @@ export const prescriptionsApi = {
 
   cancel: (id: string, reason: string) =>
     client.patch<PrescriptionResponse>(`/prescriptions/${id}/cancel`, { reason }),
+
+  delete: (id: string) => client.delete<void>(`/prescriptions/${id}`),
 }

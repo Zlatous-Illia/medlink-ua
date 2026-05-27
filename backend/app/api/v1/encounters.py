@@ -12,7 +12,7 @@ from app.core.dependencies import get_redis, require_doctor, get_current_user, r
 from app.models.user import User, UserRole
 from app.schemas.encounters import (
     EncounterCreate, EncounterUpdate, EncounterResponse,
-    DiagnosisCreate, DiagnosisResponse,
+    DiagnosisCreate, DiagnosisResponse, DiagnosisUpdate,
     AppointmentTodayResponse, ICD10SearchResponse,
     ReferralCreate, ReferralResponse, ReferralUpdate,
 )
@@ -109,6 +109,30 @@ async def add_diagnosis(
     redis: Annotated[aioredis.Redis, Depends(get_redis)],
 ):
     return await EncounterService(db, redis).add_diagnosis(encounter_id, data, current_user)
+
+
+@router.patch("/{encounter_id}/diagnoses/{diagnosis_id}", response_model=DiagnosisResponse)
+async def update_diagnosis(
+    encounter_id: uuid.UUID,
+    diagnosis_id: uuid.UUID,
+    data: DiagnosisUpdate,
+    current_user: Annotated[User, Depends(require_doctor)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    redis: Annotated[aioredis.Redis, Depends(get_redis)],
+):
+    return await EncounterService(db, redis).update_diagnosis(encounter_id, diagnosis_id, data, current_user)
+
+
+@router.delete("/{encounter_id}/diagnoses/{diagnosis_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_diagnosis(
+    encounter_id: uuid.UUID,
+    diagnosis_id: uuid.UUID,
+    current_user: Annotated[User, Depends(require_doctor)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    redis: Annotated[aioredis.Redis, Depends(get_redis)],
+):
+    await EncounterService(db, redis).delete_diagnosis(encounter_id, diagnosis_id, current_user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/patients/{patient_id}/encounters", response_model=list[EncounterResponse])

@@ -14,6 +14,12 @@ class DiagnosisCreate(BaseModel):
     notes: Optional[str] = None
 
 
+class DiagnosisUpdate(BaseModel):
+    icd10_id: Optional[uuid.UUID] = None
+    type: Optional[DiagnosisType] = None
+    notes: Optional[str] = None
+
+
 class DiagnosisResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -76,6 +82,7 @@ class ReferralCreate(BaseModel):
 
 
 class ReferralUpdate(BaseModel):
+    encounter_id: Optional[uuid.UUID] = None
     specialization_id: Optional[uuid.UUID] = None
     reason: Optional[str] = None
 

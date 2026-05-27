@@ -66,6 +66,12 @@ class PrescriptionService:
         if not drug:
             raise HTTPException(status_code=404, detail="Drug not found")
 
+        dosage = data.dosage.strip()
+        frequency = data.frequency.strip()
+        instructions = data.instructions.strip()
+        if not dosage or not frequency or not instructions:
+            raise HTTPException(status_code=400, detail="All prescription fields must be filled")
+
         # ─── Allergy check ────────────────────────────────────────────────────
         if drug.inn:
             allergy_result = await self.db.execute(
@@ -95,11 +101,11 @@ class PrescriptionService:
             patient_id=encounter.patient_id,
             doctor_id=encounter.doctor_id,  # Use encounter's doctor, not actor's
             drug_id=data.drug_id,
-            dosage=data.dosage,
-            frequency=data.frequency,
+            dosage=dosage,
+            frequency=frequency,
             duration_days=data.duration_days,
             quantity=data.quantity,
-            instructions=data.instructions,
+            instructions=instructions,
             status=PrescriptionStatus.ACTIVE,
             expires_at=datetime.now(timezone.utc) + timedelta(days=30),
         )
@@ -204,6 +210,27 @@ class PrescriptionService:
         await self.db.commit()
         await self.db.refresh(prescription)
         return PrescriptionResponse.model_validate(prescription)
+
+    async def delete_prescription(self, prescription_id: uuid.UUID, doctor_user: User) -> None:
+        doctor = await self._get_doctor_record(doctor_user, require_for_admin=False)
+
+        result = await self.db.execute(
+            select(Prescription).where(Prescription.id == prescription_id)
+        )
+        prescription = result.scalar_one_or_none()
+        if not prescription:
+            raise HTTPException(status_code=404, detail="Prescription not found")
+        if not self._is_admin(doctor_user) and (doctor is None or prescription.doctor_id != doctor.id):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        await self.db.delete(prescription)
+        self.db.add(AuditLog(
+            user_id=doctor_user.id,
+            action="DELETE_PRESCRIPTION",
+            resource="prescriptions",
+            resource_id=prescription_id,
+        ))
+        await self.db.commit()
 
     async def search_drugs(self, query: str, limit: int = 20) -> list[DrugResponse]:
         limit = min(limit, 50)

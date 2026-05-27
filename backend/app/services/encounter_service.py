@@ -24,7 +24,7 @@ from app.models.scheduling import Appointment, AppointmentStatus
 from app.models.user import AuditLog, User, UserRole
 from app.schemas.encounters import (
     EncounterCreate, EncounterUpdate, EncounterResponse,
-    DiagnosisCreate, DiagnosisResponse,
+    DiagnosisCreate, DiagnosisResponse, DiagnosisUpdate,
     AppointmentTodayResponse, ICD10SearchResponse,
     ReferralCreate, ReferralResponse, ReferralUpdate,
 )
@@ -363,6 +363,60 @@ class EncounterService:
         await self.db.commit()
         return DiagnosisResponse.model_validate(diagnosis)
 
+    async def update_diagnosis(
+        self,
+        encounter_id: uuid.UUID,
+        diagnosis_id: uuid.UUID,
+        data: DiagnosisUpdate,
+        doctor_user: User,
+    ) -> DiagnosisResponse:
+        doctor = await self._get_doctor_record(doctor_user, require_for_admin=False)
+        encounter = await self._load_encounter(encounter_id, doctor_user, doctor)
+        if encounter.status != EncounterStatus.IN_PROGRESS:
+            raise HTTPException(status_code=400, detail="Encounter already completed")
+
+        result = await self.db.execute(
+            select(Diagnosis)
+            .where(Diagnosis.id == diagnosis_id)
+            .options(selectinload(Diagnosis.icd10))
+        )
+        diagnosis = result.scalar_one_or_none()
+        if not diagnosis or diagnosis.encounter_id != encounter_id:
+            raise HTTPException(status_code=404, detail="Diagnosis not found")
+
+        updates = data.model_dump(exclude_unset=True)
+        if not updates:
+            return DiagnosisResponse.model_validate(diagnosis)
+
+        for field, value in updates.items():
+            setattr(diagnosis, field, value)
+
+        await self.db.commit()
+        await self.db.refresh(diagnosis)
+        result = await self.db.execute(
+            select(Diagnosis)
+            .where(Diagnosis.id == diagnosis.id)
+            .options(selectinload(Diagnosis.icd10))
+        )
+        diagnosis = result.scalar_one()
+        return DiagnosisResponse.model_validate(diagnosis)
+
+    async def delete_diagnosis(self, encounter_id: uuid.UUID, diagnosis_id: uuid.UUID, doctor_user: User) -> None:
+        doctor = await self._get_doctor_record(doctor_user, require_for_admin=False)
+        encounter = await self._load_encounter(encounter_id, doctor_user, doctor)
+        if encounter.status != EncounterStatus.IN_PROGRESS:
+            raise HTTPException(status_code=400, detail="Encounter already completed")
+
+        result = await self.db.execute(
+            select(Diagnosis).where(Diagnosis.id == diagnosis_id)
+        )
+        diagnosis = result.scalar_one_or_none()
+        if not diagnosis or diagnosis.encounter_id != encounter_id:
+            raise HTTPException(status_code=404, detail="Diagnosis not found")
+
+        await self.db.delete(diagnosis)
+        await self.db.commit()
+
     async def get_referral(self, referral_id: uuid.UUID, doctor_user: User) -> ReferralResponse:
         doctor = await self._get_doctor_record(doctor_user, require_for_admin=False)
         referral = await self._load_referral(referral_id, doctor_user, doctor)
@@ -375,13 +429,30 @@ class EncounterService:
             raise HTTPException(status_code=400, detail="Referral cannot be edited in its current status")
 
         updates = data.model_dump(exclude_unset=True)
+        if "encounter_id" in updates and updates["encounter_id"] is not None:
+            encounter_result = await self.db.execute(
+                select(Encounter).where(Encounter.id == updates["encounter_id"])
+            )
+            target_encounter = encounter_result.scalar_one_or_none()
+            if not target_encounter:
+                raise HTTPException(status_code=404, detail="Encounter not found")
+            if not self._is_admin(doctor_user) and (doctor is None or target_encounter.doctor_id != doctor.id):
+                raise HTTPException(status_code=403, detail="Access denied")
+            updates["patient_id"] = target_encounter.patient_id
+            updates["doctor_id"] = target_encounter.doctor_id
+
         for field, value in updates.items():
             setattr(referral, field, value)
+
+        audit_details = {
+            key: str(value) if isinstance(value, uuid.UUID) else value
+            for key, value in updates.items()
+        }
 
         self.db.add(AuditLog(
             user_id=doctor_user.id, action="UPDATE_REFERRAL",
             resource="referrals", resource_id=referral.id,
-            details=updates,
+            details=audit_details,
         ))
         await self.db.commit()
         await self.db.refresh(referral)

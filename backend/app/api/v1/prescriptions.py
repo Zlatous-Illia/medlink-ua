@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as aioredis
 
@@ -73,3 +73,14 @@ async def cancel_prescription(
     redis: Annotated[aioredis.Redis, Depends(get_redis)],
 ):
     return await PrescriptionService(db, redis).cancel_prescription(prescription_id, data, current_user)
+
+
+@router.delete("/{prescription_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_prescription(
+    prescription_id: uuid.UUID,
+    current_user: Annotated[User, Depends(require_doctor)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    redis: Annotated[aioredis.Redis, Depends(get_redis)],
+):
+    await PrescriptionService(db, redis).delete_prescription(prescription_id, current_user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
